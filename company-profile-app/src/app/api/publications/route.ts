@@ -23,11 +23,11 @@ export async function POST(request: NextRequest) {
       }
 
       const stmt = db.prepare(`
-        INSERT INTO publications (title, description, content, published_date, created_by)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO publications (title, description, content, published_date)
+        VALUES (?, ?, ?, ?)
       `)
 
-      const result = stmt.run(title, description || null, content || null, published_date || new Date().toISOString().split('T')[0], currentUser?.id || null)
+      const result = stmt.run(title, description || null, content || null, published_date || new Date().toISOString().split('T')[0])
 
       return NextResponse.json({
         success: true,
@@ -67,16 +67,15 @@ export async function POST(request: NextRequest) {
 
     // Save to database
     const stmt = db.prepare(`
-      INSERT INTO publications (title, description, pdf_path, published_date, created_by)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO publications (title, description, pdf_path, published_date)
+      VALUES (?, ?, ?, ?)
     `)
 
     const result = stmt.run(
       title,
       description || null,
       publicPath,
-      published_date || new Date().toISOString().split('T')[0],
-      currentUser?.id || null
+      published_date || new Date().toISOString().split('T')[0]
     )
 
     return NextResponse.json({
@@ -97,27 +96,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const currentUser = getCurrentUser(request)
-    const { searchParams } = new URL(request.url)
-    const manage = searchParams.get('manage') === 'true'
-
-    let query = `
-      SELECT p.*, u.name as created_by_name 
-      FROM publications p 
-      LEFT JOIN users u ON p.created_by = u.id 
-      WHERE p.is_active = 1
-    `
-    const params: any[] = []
-
-    // If user is logged in and managing, show only their publications
-    if (currentUser && manage) {
-      query += ' AND p.created_by = ?'
-      params.push(currentUser.id)
-    }
-
-    query += ' ORDER BY p.published_date DESC, p.created_at DESC'
-
-    const publications = db.prepare(query).all(...params)
+    const publications = db.prepare(`
+      SELECT * FROM publications 
+      WHERE is_active = 1 
+      ORDER BY published_date DESC, created_at DESC
+    `).all()
 
     return NextResponse.json({ publications })
   } catch (error) {

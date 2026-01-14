@@ -150,7 +150,7 @@ export default function AdminDashboard() {
 
   const fetchPublications = async () => {
     try {
-      const response = await fetch('/api/publications?manage=true')
+      const response = await fetch('/api/publications')
       const data = await response.json()
       setPublications(data.publications || [])
     } catch (error) {

@@ -43,19 +43,25 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const settings = await request.json()
+    console.log('Received settings for update:', settings)
     
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO settings (key, value, updated_at) 
       VALUES (?, ?, CURRENT_TIMESTAMP)
     `)
     
-    Object.entries(settings).forEach(([key, value]) => {
-      stmt.run(key, value)
+    const transaction = db.transaction(() => {
+      Object.entries(settings).forEach(([key, value]) => {
+        console.log(`Updating setting: ${key} = ${value}`)
+        stmt.run(key, String(value))
+      })
     })
+    
+    transaction()
     
     return NextResponse.json({ success: true, message: 'Settings updated successfully' })
   } catch (error) {
-    console.error('Database error:', error)
-    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })
+    console.error('Database error in PUT:', error)
+    return NextResponse.json({ error: 'Failed to update settings: ' + error.message }, { status: 500 })
   }
 }

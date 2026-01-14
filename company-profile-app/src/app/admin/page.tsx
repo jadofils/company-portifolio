@@ -321,25 +321,35 @@ export default function AdminDashboard() {
   }
 
   const handleSettingsUpdate = async () => {
-    if (!validateCompanySettings()) return
+    console.log('Starting settings update...')
+    console.log('Current settings:', settings)
+    
+    if (!validateCompanySettings()) {
+      console.log('Validation failed')
+      return
+    }
     
     try {
+      console.log('Sending PUT request to /api/settings')
       const response = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
       })
 
+      console.log('Response status:', response.status)
       const result = await response.json()
+      console.log('Response result:', result)
+      
       if (result.success) {
         alert('Settings updated successfully!')
-        window.location.reload()
+        fetchSettings() // Refresh settings instead of page reload
       } else {
         alert('Update failed: ' + result.error)
       }
     } catch (error) {
       console.error('Settings update error:', error)
-      alert('Update failed')
+      alert('Update failed: Network error')
     }
   }
 

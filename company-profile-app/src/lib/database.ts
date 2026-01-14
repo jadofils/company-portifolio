@@ -1,10 +1,22 @@
-import Database from 'better-sqlite3'
-import path from 'path'
 import bcrypt from 'bcryptjs'
 
-// Create database file in the project root
-const dbPath = path.join(process.cwd(), 'company.db')
-const db = new Database(dbPath)
+// Vercel serverless functions don't support better-sqlite3
+// Use environment-based database selection
+const isProduction = process.env.NODE_ENV === 'production'
+const isVercel = process.env.VERCEL === '1'
+
+if (isVercel) {
+  throw new Error('better-sqlite3 is not supported on Vercel. Please use Vercel Postgres, Supabase, or PlanetScale instead.')
+}
+
+// Only use SQLite in development
+let db: any = null
+if (!isVercel) {
+  const Database = require('better-sqlite3')
+  const path = require('path')
+  const dbPath = path.join(process.cwd(), 'company.db')
+  db = new Database(dbPath)
+}
 
 // Initialize database tables
 export function initDatabase() {

@@ -12,12 +12,18 @@ export default function LoginPage() {
     email: '',
     password: ''
   })
+  const [errors, setErrors] = useState<{[key: string]: string}>({})
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    setErrors({})
     
-    if (!formData.email || !formData.password) {
-      alert('Please fill in all fields')
+    if (!formData.email.trim()) {
+      setErrors({email: 'Email is required'})
+      return
+    }
+    if (!formData.password.trim()) {
+      setErrors({password: 'Password is required'})
       return
     }
 
@@ -29,15 +35,14 @@ export default function LoginPage() {
     .then(response => response.json())
     .then(data => {
       if (data.success) {
-        alert('Login successful!')
         window.location.href = '/admin'
       } else {
-        alert(data.error || 'Login failed')
+        setErrors({general: data.error || 'Login failed'})
       }
     })
     .catch(error => {
       console.error('Login error:', error)
-      alert('Login failed')
+      setErrors({general: 'Login failed'})
     })
   }
 
@@ -76,10 +81,14 @@ export default function LoginPage() {
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
+                      errors.email ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     placeholder="admin@mineralsco.com"
+                    autoComplete="off"
                     required
                   />
+                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                 </div>
 
                 <div>
@@ -95,6 +104,7 @@ export default function LoginPage() {
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                       placeholder="Enter your password"
+                      autoComplete="new-password"
                       required
                     />
                     <button
@@ -137,6 +147,9 @@ export default function LoginPage() {
                 >
                   Sign In
                 </button>
+                {errors.general && (
+                  <p className="text-red-500 text-sm text-center mt-2">{errors.general}</p>
+                )}
               </form>
 
               <div className="mt-6 text-center">

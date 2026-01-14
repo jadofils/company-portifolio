@@ -4,12 +4,32 @@ import { useState } from 'react'
 import { Menu, X, ChevronDown, Building2 } from 'lucide-react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useSettings } from '@/hooks/useSettings'
+import { useContent } from '@/hooks/useContent'
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
   const { settings } = useSettings()
+  const { getContentBySection } = useContent()
+
+  // Get dynamic subsections from database
+  const aboutContent = getContentBySection('about')
+  const servicesContent = getContentBySection('services')
+  const productsContent = getContentBySection('products')
+  const policiesContent = getContentBySection('policies')
+
+  // Static fallback data
+  const staticAbout = ['Corporate Governance', 'Our History', 'Leadership Team', 'Mission & Vision', 'Sustainability']
+  const staticServices = ['Sourcing', 'Testing & Analysis', 'Crushing', 'Tagging', 'Packing', 'Loading', 'Shipping']
+  const staticProducts = ['Coltan', 'Cassiterite', 'Tungsten']
+  const staticPolicies = ['Environmental Policy', 'Safety Standards', 'Quality Assurance', 'Compliance']
+
+  // Combine static and dynamic content - show all static items plus any new dynamic ones
+  const aboutItems = [...staticAbout, ...aboutContent.filter(item => !staticAbout.includes(item.title)).map(item => item.title)]
+  const services = [...staticServices, ...servicesContent.filter(item => !staticServices.includes(item.title)).map(item => item.title)]
+  const products = [...staticProducts, ...productsContent.filter(item => !staticProducts.includes(item.title)).map(item => item.title)]
+  const policies = [...staticPolicies, ...policiesContent.filter(item => !staticPolicies.includes(item.title)).map(item => item.title)]
 
   const scrollToSection = (sectionId: string) => {
     // If not on home page, navigate to home first
@@ -26,21 +46,10 @@ const Navbar = () => {
     setIsOpen(false)
   }
 
-  const services = [
-    'Sourcing', 'Testing & Analysis', 'Crushing', 'Tagging', 'Packing', 'Loading', 'Shipping'
-  ]
-
-  const products = [
-    'Coltan', 'Cassiterite', 'Tungsten'
-  ]
-
-  const policies = [
-    'Environmental Policy', 'Safety Standards', 'Quality Assurance', 'Compliance'
-  ]
-
-  const aboutItems = [
-    'Corporate Governance', 'Our History', 'Leadership Team', 'Mission & Vision', 'Sustainability'
-  ]
+  console.log('About items:', aboutItems)
+  console.log('Services:', services)
+  console.log('Products:', products)
+  console.log('Policies:', policies)
 
   return (
     <nav className="fixed top-0 w-full bg-white shadow-sm z-50 border-b border-gray-200">
@@ -79,7 +88,7 @@ const Navbar = () => {
                 >
                   About Us <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
-                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-2">
                     {aboutItems.map((item) => (
                       <button
@@ -102,7 +111,7 @@ const Navbar = () => {
                 >
                   Services <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
-                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-2">
                     {services.map((service) => (
                       <button
@@ -125,7 +134,7 @@ const Navbar = () => {
                 >
                   Products <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
-                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-2">
                     {products.map((product) => (
                       <button
@@ -148,7 +157,7 @@ const Navbar = () => {
                 >
                   Policies <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
-                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-2">
                     {policies.map((policy) => (
                       <button
@@ -175,12 +184,14 @@ const Navbar = () => {
               >
                 Publications
               </a>
-              <a
-                href="/login"
-                className="text-gray-700 hover:text-gray-900 text-sm font-medium transition-colors duration-200"
-              >
-                Login
-              </a>
+              {pathname !== '/login' && pathname !== '/forgot-password' && (
+                <a
+                  href="/login"
+                  className="text-gray-700 hover:text-gray-900 text-sm font-medium transition-colors duration-200"
+                >
+                  Login
+                </a>
+              )}
             </div>
           </div>
 
@@ -235,12 +246,14 @@ const Navbar = () => {
               >
                 Publications
               </a>
-              <a
-                href="/login"
-                className="block px-3 py-2 text-gray-700 hover:text-gray-900 text-sm font-medium"
-              >
-                Login
-              </a>
+              {pathname !== '/login' && pathname !== '/forgot-password' && (
+                <a
+                  href="/login"
+                  className="block px-3 py-2 text-gray-700 hover:text-gray-900 text-sm font-medium"
+                >
+                  Login
+                </a>
+              )}
             </div>
           </div>
         )}

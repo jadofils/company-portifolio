@@ -50,6 +50,27 @@ interface Publication {
   created_at: string
 }
 
+interface ContentItem {
+  id: number
+  section: string
+  subsection: string | null
+  title: string
+  content: string
+  image_url: string | null
+  updated_at: string
+}
+
+interface DisplayItem {
+  id?: number
+  section?: string
+  subsection?: string | null
+  title: string
+  content: string
+  image_url?: string | null
+  updated_at?: string
+  isStatic: boolean
+}
+
 export default function AdminDashboard() {
   const [activeSection, setActiveSection] = useState('images')
   const [activeSettingsTab, setActiveSettingsTab] = useState('company')
@@ -62,6 +83,18 @@ export default function AdminDashboard() {
   const [images, setImages] = useState<UploadedImage[]>([])
   const [messages, setMessages] = useState<ContactMessage[]>([])
   const [publications, setPublications] = useState<Publication[]>([])
+  const [contentItems, setContentItems] = useState<ContentItem[]>([])
+  const [availableSubsections, setAvailableSubsections] = useState<{[key: string]: string[]}>({})
+  const [contentForm, setContentForm] = useState({
+    section: 'about',
+    subsection: '',
+    title: '',
+    content: '',
+    image_url: ''
+  })
+  const [contentFilter, setContentFilter] = useState<'all' | 'static' | 'database'>('all')
+  const [editingContent, setEditingContent] = useState<ContentItem | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
   const [publicationForm, setPublicationForm] = useState({
     title: '',
     description: '',
@@ -90,6 +123,7 @@ export default function AdminDashboard() {
 
   const sidebarItems = [
     { id: 'images', label: 'Images', icon: ImageIcon },
+    { id: 'content', label: 'Content', icon: FileText },
     { id: 'publications', label: 'Publications', icon: FileText },
     { id: 'messages', label: 'Messages', icon: Mail },
     { id: 'settings', label: 'Settings', icon: Settings }
@@ -158,6 +192,44 @@ export default function AdminDashboard() {
     }
   }
 
+  const fetchContent = async () => {
+    try {
+      const response = await fetch('/api/content')
+      const data = await response.json()
+      setContentItems(data.content || [])
+      
+      // Default subsections if no content exists
+      const defaultSubsections = {
+        about: ['corporate-governance', 'our-history', 'leadership-team', 'mission-vision', 'sustainability'],
+        services: ['sourcing', 'testing-analysis', 'crushing', 'tagging', 'packing', 'loading', 'shipping'],
+        products: ['coltan', 'cassiterite', 'tungsten'],
+        policies: ['environmental-policy', 'safety-standards', 'quality-assurance', 'compliance']
+      }
+      
+      // Extract unique subsections per section
+      const subsections: {[key: string]: string[]} = {}
+      data.content?.forEach((item: ContentItem) => {
+        if (item.subsection) {
+          if (!subsections[item.section]) subsections[item.section] = []
+          if (!subsections[item.section].includes(item.subsection)) {
+            subsections[item.section].push(item.subsection)
+          }
+        }
+      })
+      
+      // Use defaults if no subsections exist for a section
+      Object.keys(defaultSubsections).forEach(section => {
+        if (!subsections[section] || subsections[section].length === 0) {
+          subsections[section] = defaultSubsections[section as keyof typeof defaultSubsections]
+        }
+      })
+      
+      setAvailableSubsections(subsections)
+    } catch (error) {
+      console.error('Failed to fetch content:', error)
+    }
+  }
+
   useEffect(() => {
     fetchImages()
   }, [selectedSection, selectedSubsection])
@@ -166,6 +238,7 @@ export default function AdminDashboard() {
     fetchSettings()
     fetchMessages()
     fetchPublications()
+    fetchContent()
   }, [])
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -278,7 +351,6 @@ export default function AdminDashboard() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.company_email)) newErrors.company_email = 'Invalid email format'
     if (!settings.company_phone.trim()) newErrors.company_phone = 'Phone is required'
     if (!settings.company_address.trim()) newErrors.company_address = 'Address is required'
-    if (!settings.footer_description.trim()) newErrors.footer_description = 'Footer description is required'
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -522,6 +594,84 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleContentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!contentForm.title || !contentForm.content) {
+      alert('Title and content are required')
+      return
+    }
+
+    setUploading(true)
+    try {
+      const url = isEditing ? '/api/content' : '/api/content'
+      const method = isEditing ? 'PUT' : 'POST'
+      const body = isEditing 
+        ? JSON.stringify({ ...contentForm, id: editingContent?.id })
+        : JSON.stringify(contentForm)
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        alert(isEditing ? 'Content updated successfully!' : 'Content saved successfully!')
+        setContentForm({ section: 'about', subsection: '', title: '', content: '', image_url: '' })
+        setIsEditing(false)
+        setEditingContent(null)
+        fetchContent()
+      } else {
+        alert('Failed to save content: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Content error:', error)
+      alert('Failed to save content')
+    }
+    setUploading(false)
+  }
+
+  const editContent = (item: ContentItem) => {
+    setContentForm({
+      section: item.section,
+      subsection: item.subsection || '',
+      title: item.title,
+      content: item.content,
+      image_url: item.image_url || ''
+    })
+    setEditingContent(item)
+    setIsEditing(true)
+  }
+
+  const cancelEdit = () => {
+    setContentForm({ section: 'about', subsection: '', title: '', content: '', image_url: '' })
+    setIsEditing(false)
+    setEditingContent(null)
+  }
+
+  const deleteContent = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this content?')) return
+    
+    try {
+      const response = await fetch('/api/content', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        fetchContent()
+      } else {
+        alert('Failed to delete content')
+      }
+    } catch (error) {
+      console.error('Delete error:', error)
+      alert('Failed to delete content')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -566,7 +716,7 @@ export default function AdminDashboard() {
 
         {/* Main Content */}
         <div className="flex-1 p-8">
-          {activeSection === 'images' && (
+{activeSection === 'images' && (
             <div>
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Image Management</h3>
               <div className="grid lg:grid-cols-3 gap-8">
@@ -727,6 +877,277 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {activeSection === 'content' && (
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">Content Management</h3>
+              <div className="grid lg:grid-cols-2 gap-8">
+                {/* Content Form */}
+                <div>
+                  <div className="bg-white border border-gray-200 rounded p-6 mb-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className="text-lg font-bold">{isEditing ? 'Edit Content' : 'Add/Edit Content'}</h4>
+                      {isEditing && (
+                        <button
+                          onClick={cancelEdit}
+                          className="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+                        >
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
+                      <strong>Guide:</strong> You can create new content or update existing ones (including static defaults like "Corporate Governance", "Our History", etc.). 
+                      To edit existing content, click the edit button next to any item in the list below.
+                    </div>
+
+                    <div className="mb-6">
+                      <h5 className="font-medium text-gray-900 mb-3">Content Overview by Section</h5>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        {['about', 'services', 'products', 'policies'].map(section => {
+                          const sectionContent = contentItems.filter(item => item.section === section)
+                          const staticItems = {
+                            about: ['Corporate Governance', 'Our History', 'Leadership Team', 'Mission & Vision', 'Sustainability'],
+                            services: ['Sourcing', 'Testing & Analysis', 'Crushing', 'Tagging', 'Packing', 'Loading', 'Shipping'],
+                            products: ['Coltan', 'Cassiterite', 'Tungsten'],
+                            policies: ['Environmental Policy', 'Safety Standards', 'Quality Assurance', 'Compliance']
+                          }[section] || []
+                          
+                          const dbItems = sectionContent.map(item => item.title)
+                          const staticOnly = staticItems.filter(item => !dbItems.includes(item))
+                          const customItems = dbItems.filter(item => !staticItems.includes(item))
+                          
+                          return (
+                            <div key={section} className="border border-gray-200 rounded p-3">
+                              <h6 className="font-medium capitalize mb-2">{section}</h6>
+                              <div className="space-y-1">
+                                {staticOnly.length > 0 && (
+                                  <div>
+                                    <span className="text-gray-500">Static ({staticOnly.length}):</span>
+                                    <div className="text-gray-400 text-xs">{staticOnly.join(', ')}</div>
+                                  </div>
+                                )}
+                                {dbItems.filter(item => staticItems.includes(item)).length > 0 && (
+                                  <div>
+                                    <span className="text-green-600">Customized ({dbItems.filter(item => staticItems.includes(item)).length}):</span>
+                                    <div className="text-green-500 text-xs">{dbItems.filter(item => staticItems.includes(item)).join(', ')}</div>
+                                  </div>
+                                )}
+                                {customItems.length > 0 && (
+                                  <div>
+                                    <span className="text-blue-600">Custom ({customItems.length}):</span>
+                                    <div className="text-blue-500 text-xs">{customItems.join(', ')}</div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    
+                    <form onSubmit={handleContentSubmit} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
+                        <select
+                          value={contentForm.section}
+                          onChange={(e) => setContentForm({...contentForm, section: e.target.value, subsection: ''})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                        >
+                          <option value="about">About Us</option>
+                          <option value="services">Services</option>
+                          <option value="products">Products</option>
+                          <option value="policies">Policies</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Subsection</label>
+                        <div className="space-y-2">
+                          <select
+                            value={contentForm.subsection}
+                            onChange={(e) => setContentForm({...contentForm, subsection: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          >
+                            <option value="">Select existing subsection...</option>
+                            {availableSubsections[contentForm.section]?.map(sub => (
+                              <option key={sub} value={sub}>{sub.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            value={contentForm.subsection}
+                            onChange={(e) => setContentForm({...contentForm, subsection: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            placeholder="Or create new subsection..."
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                        <input
+                          type="text"
+                          value={contentForm.title}
+                          onChange={(e) => setContentForm({...contentForm, title: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Content</label>
+                        <textarea
+                          value={contentForm.content}
+                          onChange={(e) => setContentForm({...contentForm, content: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          rows={8}
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Image URL (Optional)</label>
+                        <input
+                          type="url"
+                          value={contentForm.image_url}
+                          onChange={(e) => setContentForm({...contentForm, image_url: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          placeholder="https://example.com/image.jpg"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={uploading}
+                        className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {uploading ? 'Saving...' : (isEditing ? 'Update Content' : 'Save Content')}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Content List */}
+                <div>
+                  <div className="bg-white border border-gray-200 rounded p-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className="text-lg font-bold">Existing Content</h4>
+                      <div className="flex space-x-2">
+                        <select
+                          value={contentForm.section}
+                          onChange={(e) => setContentForm({...contentForm, section: e.target.value})}
+                          className="px-3 py-1 border border-gray-300 rounded text-sm"
+                        >
+                          <option value="about">About Us</option>
+                          <option value="services">Services</option>
+                          <option value="products">Products</option>
+                          <option value="policies">Policies</option>
+                        </select>
+                        <select
+                          value={contentFilter}
+                          onChange={(e) => setContentFilter(e.target.value as 'all' | 'static' | 'database')}
+                          className="px-3 py-1 border border-gray-300 rounded text-sm"
+                        >
+                          <option value="all">All Content</option>
+                          <option value="static">Static Only</option>
+                          <option value="database">Database Only</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    {(() => {
+                      const sectionContent = contentItems.filter(item => item.section === contentForm.section)
+                      const staticItems = {
+                        about: ['Corporate Governance', 'Our History', 'Leadership Team', 'Mission & Vision', 'Sustainability'],
+                        services: ['Sourcing', 'Testing & Analysis', 'Crushing', 'Tagging', 'Packing', 'Loading', 'Shipping'],
+                        products: ['Coltan', 'Cassiterite', 'Tungsten'],
+                        policies: ['Environmental Policy', 'Safety Standards', 'Quality Assurance', 'Compliance']
+                      }[contentForm.section] || []
+                      
+                      const dbItems = sectionContent.map(item => item.title)
+                      const staticOnlyItems = staticItems.filter(item => !dbItems.includes(item))
+                      
+                      let displayItems: DisplayItem[] = []
+                      if (contentFilter === 'static') {
+                        displayItems = staticOnlyItems.map(title => ({ 
+                          isStatic: true, 
+                          title, 
+                          content: 'Default static content'
+                        } as DisplayItem))
+                      } else if (contentFilter === 'database') {
+                        displayItems = sectionContent.map(item => ({ ...item, isStatic: false } as DisplayItem))
+                      } else {
+                        displayItems = [
+                          ...staticOnlyItems.map(title => ({ 
+                            isStatic: true, 
+                            title, 
+                            content: 'Default static content'
+                          } as DisplayItem)),
+                          ...sectionContent.map(item => ({ ...item, isStatic: false } as DisplayItem))
+                        ]
+                      }
+                      
+                      return displayItems.length === 0 ? (
+                        <div className="text-center py-8">
+                          <FileText className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                          <p className="text-gray-500">No {contentFilter === 'all' ? '' : contentFilter + ' '}content for {contentForm.section} section</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {displayItems.map((item, index) => (
+                            <div key={item.isStatic ? `static-${item.title}` : item.id} className="border border-gray-200 rounded p-4 relative group">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <h5 className="font-medium text-gray-900">{item.title}</h5>
+                                  <span className={`px-2 py-1 text-xs rounded ${
+                                    item.isStatic ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-600'
+                                  }`}>
+                                    {item.isStatic ? 'Static' : 'Database'}
+                                  </span>
+                                </div>
+                                {!item.isStatic && 'id' in item && item.id && (
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => editContent(item as ContentItem)}
+                                      className="px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded hover:bg-blue-200 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={() => deleteContent(item.id!)}
+                                      className="w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600 mb-2 line-clamp-3">{item.content}</p>
+                              {!item.isStatic && 'section' in item && 'updated_at' in item && item.section && item.updated_at && (
+                                <>
+                                  <div className="flex items-center justify-between text-xs text-gray-500">
+                                    <span>{item.section} {'subsection' in item && item.subsection && `• ${item.subsection}`}</span>
+                                    <span>Updated: {new Date(item.updated_at).toLocaleDateString()}</span>
+                                  </div>
+                                  {'image_url' in item && item.image_url && (
+                                    <div className="mt-2">
+                                      <img src={item.image_url} alt={item.title} className="h-16 w-auto rounded" />
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeSection === 'publications' && (
             <div>
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Publications Management</h3>
@@ -859,11 +1280,11 @@ export default function AdminDashboard() {
                               >
                                 View PDF
                               </a>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                   </div>
                 </div>
               </div>
@@ -878,8 +1299,8 @@ export default function AdminDashboard() {
                   <div className="text-center py-8">
                     <Mail className="h-8 w-8 mx-auto text-gray-400 mb-2" />
                     <p className="text-gray-500">No messages received yet</p>
-                  </div>
-                ) : (
+        </div>
+) : (
                   <div className="space-y-4">
                     {messages.map((message) => (
                       <div key={message.id} className={`border rounded p-4 ${

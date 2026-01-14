@@ -1,13 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu, X, ChevronDown } from 'lucide-react'
+import { Menu, X, ChevronDown, Building2 } from 'lucide-react'
 import { useRouter, usePathname } from 'next/navigation'
+import { useSettings } from '@/hooks/useSettings'
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
+  const { settings } = useSettings()
 
   const scrollToSection = (sectionId: string) => {
     // If not on home page, navigate to home first
@@ -44,8 +46,20 @@ const Navbar = () => {
     <nav className="fixed top-0 w-full bg-white shadow-sm z-50 border-b border-gray-200">
       <div className="container-max section-padding">
         <div className="flex justify-between items-center h-16">
-          <div className="flex-shrink-0">
-            <h1 className="text-xl font-bold text-gray-900">MineralsCorp</h1>
+          <div className="flex items-center space-x-3">
+            {settings.company_logo ? (
+              <img 
+                src={settings.company_logo} 
+                alt={`${settings.company_name} Logo`}
+                className="h-8 w-auto"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                }}
+              />
+            ) : null}
+            <Building2 className={`h-8 w-8 text-blue-600 ${settings.company_logo ? 'hidden' : ''}`} />
+            <h1 className="text-xl font-bold text-gray-900">{settings.company_name}</h1>
           </div>
 
           {/* Desktop Menu */}
@@ -156,6 +170,12 @@ const Navbar = () => {
                 Contact Us
               </button>
               <a
+                href="/publications"
+                className="text-gray-700 hover:text-gray-900 text-sm font-medium transition-colors duration-200"
+              >
+                Publications
+              </a>
+              <a
                 href="/login"
                 className="text-gray-700 hover:text-gray-900 text-sm font-medium transition-colors duration-200"
               >
@@ -209,6 +229,12 @@ const Navbar = () => {
               >
                 Contact Us
               </button>
+              <a
+                href="/publications"
+                className="block px-3 py-2 text-gray-700 hover:text-gray-900 text-sm font-medium"
+              >
+                Publications
+              </a>
               <a
                 href="/login"
                 className="block px-3 py-2 text-gray-700 hover:text-gray-900 text-sm font-medium"

@@ -15,7 +15,30 @@ export default function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Login attempt:', formData)
+    
+    if (!formData.email || !formData.password) {
+      alert('Please fill in all fields')
+      return
+    }
+
+    fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert('Login successful!')
+        window.location.href = '/admin'
+      } else {
+        alert(data.error || 'Login failed')
+      }
+    })
+    .catch(error => {
+      console.error('Login error:', error)
+      alert('Login failed')
+    })
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

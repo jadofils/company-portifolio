@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Shield } from 'lucide-react'
+import { useImages } from '@/hooks/useImages'
 
 type PolicySectionKey =
   | 'environmental-policy'
@@ -11,19 +12,13 @@ type PolicySectionKey =
 
 const PoliciesSection = () => {
   const [activeSection, setActiveSection] = useState<PolicySectionKey>('environmental-policy')
+  const { imageUrls } = useImages('policies', activeSection)
 
-  const images = [
-    "https://th.bing.com/th/id/OIP.LiODO2lw3Zcv843Pi0vvJAHaEK?w=369&h=180&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Mining operation
-    "https://th.bing.com/th/id/OIP.9i_fNXTfm3RWJW6W9cd9mAHaE8?w=331&h=181&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Mining equipment
-    "https://th.bing.com/th/id/OIP.p6FM3vNeT9ts6h5j8fLUUQHaEJ?w=324&h=182&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Gold minerals
-    "https://th.bing.com/th/id/OIP.dl7epDFleTqukHg0gdzumwHaE5?w=274&h=181&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3"  // Industrial mining
-  ]
-
-  const policySections: { id: PolicySectionKey; title: string; imageIndex: number }[] = [
-    { id: 'environmental-policy', title: 'Environmental Policy', imageIndex: 0 },
-    { id: 'safety-standards', title: 'Safety Standards', imageIndex: 1 },
-    { id: 'quality-assurance', title: 'Quality Assurance', imageIndex: 2 },
-    { id: 'compliance', title: 'Compliance', imageIndex: 3 }
+  const policySections: { id: PolicySectionKey; title: string }[] = [
+    { id: 'environmental-policy', title: 'Environmental Policy' },
+    { id: 'safety-standards', title: 'Safety Standards' },
+    { id: 'quality-assurance', title: 'Quality Assurance' },
+    { id: 'compliance', title: 'Compliance' }
   ]
 
   const sectionContent: Record<PolicySectionKey, { title: string; content: string; keyPoints: string[] }> = {
@@ -84,10 +79,14 @@ const PoliciesSection = () => {
   return (
     <section id="policies" className="bg-white">
       {/* Hero Image */}
-      <div className="w-full h-80 bg-cover bg-center" style={{
-        backgroundImage: `url("${images[policySections.find(s => s.id === activeSection)?.imageIndex || 0]}")`
+      <div className="w-full h-80 bg-gray-100 relative flex items-center justify-center" style={{
+        backgroundImage: imageUrls[0] ? `url("${imageUrls[0]}")` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
       }}>
-        <div className="w-full h-full bg-black/50 flex items-center justify-center">
+        {!imageUrls[0] && <Shield className="h-24 w-24 text-gray-400" />}
+        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="w-full h-full bg-black/30 flex items-center justify-center relative z-10">
           <h2 className="text-4xl font-bold text-white">Policies</h2>
         </div>
       </div>

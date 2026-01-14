@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Gem } from 'lucide-react'
+import { useImages } from '@/hooks/useImages'
 
 type ProductSectionKey =
   | 'coltan'
@@ -10,18 +11,12 @@ type ProductSectionKey =
 
 const ProductsSection = () => {
   const [activeSection, setActiveSection] = useState<ProductSectionKey>('coltan')
+  const { imageUrls } = useImages('products', activeSection)
 
-  const images = [
-    "https://th.bing.com/th/id/OIP.LiODO2lw3Zcv843Pi0vvJAHaEK?w=369&h=180&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Mining operation
-    "https://th.bing.com/th/id/OIP.9i_fNXTfm3RWJW6W9cd9mAHaE8?w=331&h=181&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Mining equipment
-    "https://th.bing.com/th/id/OIP.p6FM3vNeT9ts6h5j8fLUUQHaEJ?w=324&h=182&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Gold minerals
-    "https://th.bing.com/th/id/OIP.dl7epDFleTqukHg0gdzumwHaE5?w=274&h=181&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3"  // Industrial mining
-  ]
-
-  const productSections: { id: ProductSectionKey; title: string; imageIndex: number }[] = [
-    { id: 'coltan', title: 'Coltan', imageIndex: 2 },
-    { id: 'cassiterite', title: 'Cassiterite', imageIndex: 1 },
-    { id: 'tungsten', title: 'Tungsten', imageIndex: 3 }
+  const productSections: { id: ProductSectionKey; title: string }[] = [
+    { id: 'coltan', title: 'Coltan' },
+    { id: 'cassiterite', title: 'Cassiterite' },
+    { id: 'tungsten', title: 'Tungsten' }
   ]
 
   const sectionContent: Record<ProductSectionKey, { title: string; fullName: string; content: string; chemicalInfo: string; applications: string }> = {
@@ -57,10 +52,14 @@ const ProductsSection = () => {
   return (
     <section id="products" className="bg-white">
       {/* Hero Image */}
-      <div className="w-full h-80 bg-cover bg-center" style={{
-        backgroundImage: `url("${images[productSections.find(s => s.id === activeSection)?.imageIndex || 0]}")`
+      <div className="w-full h-80 bg-gray-100 relative flex items-center justify-center" style={{
+        backgroundImage: imageUrls[0] ? `url("${imageUrls[0]}")` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
       }}>
-        <div className="w-full h-full bg-black/50 flex items-center justify-center">
+        {!imageUrls[0] && <Gem className="h-24 w-24 text-gray-400" />}
+        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="w-full h-full bg-black/30 flex items-center justify-center relative z-10">
           <h2 className="text-4xl font-bold text-white">Products</h2>
         </div>
       </div>

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, FlaskConical, Hammer, Tag, Package, Truck, Ship, ArrowRight } from 'lucide-react'
+import { Search, FlaskConical, Hammer, Tag, Package, Truck, Ship, ArrowRight, Cog } from 'lucide-react'
+import { useImages } from '@/hooks/useImages'
 
 type ServiceSectionKey =
   | 'sourcing'
@@ -14,22 +15,16 @@ type ServiceSectionKey =
 
 const ServicesSection = () => {
   const [activeSection, setActiveSection] = useState<ServiceSectionKey>('sourcing')
+  const { imageUrls } = useImages('services', activeSection)
 
-  const images = [
-    "https://th.bing.com/th/id/OIP.LiODO2lw3Zcv843Pi0vvJAHaEK?w=369&h=180&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Mining operation
-    "https://th.bing.com/th/id/OIP.9i_fNXTfm3RWJW6W9cd9mAHaE8?w=331&h=181&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Mining equipment
-    "https://th.bing.com/th/id/OIP.p6FM3vNeT9ts6h5j8fLUUQHaEJ?w=324&h=182&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Gold minerals
-    "https://th.bing.com/th/id/OIP.dl7epDFleTqukHg0gdzumwHaE5?w=274&h=181&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3"  // Industrial mining
-  ]
-
-  const serviceSections: { id: ServiceSectionKey; title: string; imageIndex: number }[] = [
-    { id: 'sourcing', title: 'Sourcing', imageIndex: 0 },
-    { id: 'testing-analysis', title: 'Testing & Analysis', imageIndex: 1 },
-    { id: 'crushing', title: 'Crushing', imageIndex: 2 },
-    { id: 'tagging', title: 'Tagging', imageIndex: 3 },
-    { id: 'packing', title: 'Packing', imageIndex: 0 },
-    { id: 'loading', title: 'Loading', imageIndex: 1 },
-    { id: 'shipping', title: 'Shipping', imageIndex: 2 }
+  const serviceSections: { id: ServiceSectionKey; title: string }[] = [
+    { id: 'sourcing', title: 'Sourcing' },
+    { id: 'testing-analysis', title: 'Testing & Analysis' },
+    { id: 'crushing', title: 'Crushing' },
+    { id: 'tagging', title: 'Tagging' },
+    { id: 'packing', title: 'Packing' },
+    { id: 'loading', title: 'Loading' },
+    { id: 'shipping', title: 'Shipping' }
   ]
 
   const sectionContent: Record<ServiceSectionKey, { title: string; content: string; icon: JSX.Element }> = {
@@ -87,10 +82,14 @@ const ServicesSection = () => {
   return (
     <section id="services" className="bg-white">
       {/* Hero Image */}
-      <div className="w-full h-80 bg-cover bg-center" style={{
-        backgroundImage: `url("${images[serviceSections.find(s => s.id === activeSection)?.imageIndex || 0]}")`
+      <div className="w-full h-80 bg-gray-100 relative flex items-center justify-center" style={{
+        backgroundImage: imageUrls[0] ? `url("${imageUrls[0]}")` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
       }}>
-        <div className="w-full h-full bg-black/50 flex items-center justify-center">
+        {!imageUrls[0] && <Cog className="h-24 w-24 text-gray-400" />}
+        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="w-full h-full bg-black/30 flex items-center justify-center relative z-10">
           <h2 className="text-4xl font-bold text-white">Services</h2>
         </div>
       </div>

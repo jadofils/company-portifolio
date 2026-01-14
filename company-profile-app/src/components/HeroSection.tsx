@@ -1,24 +1,35 @@
 'use client'
 
-import { useState } from 'react'
-import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronLeft, ChevronRight, ArrowRight, Mountain } from 'lucide-react'
+import { useImages } from '@/hooks/useImages'
 
 const HeroSection = () => {
   const [currentImage, setCurrentImage] = useState(0)
+  const { imageUrls, hasUploadedImages, loading } = useImages('hero')
   
-  const images = [
-    "https://th.bing.com/th/id/OIP.LiODO2lw3Zcv843Pi0vvJAHaEK?w=369&h=180&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Mining operation
-    "https://th.bing.com/th/id/OIP.9i_fNXTfm3RWJW6W9cd9mAHaE8?w=331&h=181&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Mining equipment
-    "https://th.bing.com/th/id/OIP.p6FM3vNeT9ts6h5j8fLUUQHaEJ?w=324&h=182&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3", // Gold minerals
-    "https://th.bing.com/th/id/OIP.dl7epDFleTqukHg0gdzumwHaE5?w=274&h=181&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3"  // Industrial mining
-  ]
-
+  useEffect(() => {
+    console.log('Hero images:', imageUrls, 'Has uploaded:', hasUploadedImages)
+  }, [imageUrls, hasUploadedImages])
+  
   const nextImage = () => {
-    setCurrentImage((prev) => (prev + 1) % images.length)
+    setCurrentImage((prev) => (prev + 1) % imageUrls.length)
   }
 
   const prevImage = () => {
-    setCurrentImage((prev) => (prev - 1 + images.length) % images.length)
+    setCurrentImage((prev) => (prev - 1 + imageUrls.length) % imageUrls.length)
+  }
+
+  if (loading) {
+    return (
+      <section id="home" className="py-20 bg-white mt-16">
+        <div className="container-max section-padding">
+          <div className="text-center">
+            <p>Loading images...</p>
+          </div>
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -27,12 +38,27 @@ const HeroSection = () => {
         <div className="grid lg:grid-cols-10 gap-8 items-center">
           {/* Image Gallery - 70% */}
           <div className="lg:col-span-7 relative">
-            <div className="aspect-[16/10] overflow-hidden rounded">
-              <img 
-                src={images[currentImage]}
-                alt="Mining Operations"
-                className="w-full h-full object-cover"
-              />
+            <div className="aspect-[16/10] overflow-hidden rounded relative bg-gray-100 flex items-center justify-center">
+              {imageUrls.length > 0 ? (
+                <>
+                  <img 
+                    src={imageUrls[currentImage]}
+                    alt="Mining Operations"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                      e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-black/10 hidden flex items-center justify-center">
+                    <Mountain className="h-24 w-24 text-gray-400" />
+                  </div>
+                </>
+              ) : (
+                <Mountain className="h-24 w-24 text-gray-400" />
+              )}
+              {/* Subtle overlay */}
+              <div className="absolute inset-0 bg-black/10"></div>
             </div>
             
             {/* Navigation Dots */}
@@ -56,7 +82,7 @@ const HeroSection = () => {
             
             {/* Dots Indicator */}
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-              {images.map((_, index) => (
+              {imageUrls.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentImage(index)}

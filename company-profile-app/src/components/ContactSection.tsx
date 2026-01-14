@@ -2,18 +2,43 @@
 
 import { Mail, Phone, MapPin, Send } from 'lucide-react'
 import { useState } from 'react'
+import { useSettings } from '@/hooks/useSettings'
 
 const ContactSection = () => {
+  const { settings } = useSettings()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    subject: '',
+    company: '',
     message: ''
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Form submitted:', formData)
+    setIsSubmitting(true)
+    setSubmitStatus('idle')
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        setSubmitStatus('success')
+        setFormData({ name: '', email: '', company: '', message: '' })
+      } else {
+        setSubmitStatus('error')
+      }
+    } catch (error) {
+      console.error('Contact form error:', error)
+      setSubmitStatus('error')
+    }
+    setIsSubmitting(false)
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -45,8 +70,7 @@ const ContactSection = () => {
                 </div>
                 <div className="ml-4">
                   <h4 className="text-lg font-semibold text-secondary-900">Email</h4>
-                  <p className="text-secondary-600">info@mineralsco.com</p>
-                  <p className="text-secondary-600">sales@mineralsco.com</p>
+                  <p className="text-secondary-600">{settings.company_email}</p>
                 </div>
               </div>
 
@@ -56,8 +80,7 @@ const ContactSection = () => {
                 </div>
                 <div className="ml-4">
                   <h4 className="text-lg font-semibold text-secondary-900">Phone</h4>
-                  <p className="text-secondary-600">+1 (555) 123-4567</p>
-                  <p className="text-secondary-600">Emergency: +1 (555) 987-6543</p>
+                  <p className="text-secondary-600">{settings.company_phone}</p>
                 </div>
               </div>
 
@@ -66,9 +89,8 @@ const ContactSection = () => {
                   <MapPin className="h-6 w-6 text-primary-600" />
                 </div>
                 <div className="ml-4">
-                  <h4 className="text-lg font-semibold text-secondary-900">Headquarters</h4>
-                  <p className="text-secondary-600">123 Mining District</p>
-                  <p className="text-secondary-600">Industrial City, State 12345</p>
+                  <h4 className="text-lg font-semibold text-secondary-900">Address</h4>
+                  <div className="text-secondary-600 whitespace-pre-line">{settings.company_address}</div>
                 </div>
               </div>
             </div>
@@ -108,17 +130,16 @@ const ContactSection = () => {
               </div>
 
               <div>
-                <label htmlFor="subject" className="block text-sm font-medium text-secondary-700 mb-2">
-                  Subject
+                <label htmlFor="company" className="block text-sm font-medium text-secondary-700 mb-2">
+                  Company (Optional)
                 </label>
                 <input
                   type="text"
-                  id="subject"
-                  name="subject"
-                  value={formData.subject}
+                  id="company"
+                  name="company"
+                  value={formData.company}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  required
                 />
               </div>
 
@@ -139,10 +160,23 @@ const ContactSection = () => {
 
               <button
                 type="submit"
-                className="w-full btn-primary flex items-center justify-center gap-2 text-lg"
+                disabled={isSubmitting}
+                className="w-full btn-primary flex items-center justify-center gap-2 text-lg disabled:opacity-50"
               >
-                Send Message <Send className="h-5 w-5" />
+                {isSubmitting ? 'Sending...' : 'Send Message'} <Send className="h-5 w-5" />
               </button>
+              
+              {submitStatus === 'success' && (
+                <div className="text-center text-green-600 font-medium">
+                  Message sent successfully! We'll get back to you soon.
+                </div>
+              )}
+              
+              {submitStatus === 'error' && (
+                <div className="text-center text-red-600 font-medium">
+                  Failed to send message. Please try again.
+                </div>
+              )}
             </form>
           </div>
         </div>

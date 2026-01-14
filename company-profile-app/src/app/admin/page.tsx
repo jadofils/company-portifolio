@@ -119,7 +119,6 @@ export default function AdminDashboard() {
       const params = new URLSearchParams()
       if (selectedSection) params.append('section', selectedSection)
       if (selectedSubsection) params.append('subsection', selectedSubsection)
-      params.append('manage', 'true') // Only show user's own images
       
       const response = await fetch(`/api/images?${params}`)
       const data = await response.json()

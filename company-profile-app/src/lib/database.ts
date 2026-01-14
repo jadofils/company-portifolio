@@ -49,8 +49,7 @@ export function initDatabase() {
       is_url BOOLEAN DEFAULT 0,
       uploaded_by INTEGER,
       uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      is_active BOOLEAN DEFAULT 1,
-      FOREIGN KEY (uploaded_by) REFERENCES users(id)
+      is_active BOOLEAN DEFAULT 1
     )
   `)
 
@@ -101,8 +100,7 @@ export function initDatabase() {
       published_date DATE,
       created_by INTEGER,
       is_active BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (created_by) REFERENCES users(id)
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `)
 

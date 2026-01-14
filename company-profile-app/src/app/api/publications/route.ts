@@ -9,13 +9,6 @@ initDatabase()
 export async function POST(request: NextRequest) {
   try {
     const currentUser = getCurrentUser(request)
-    if (!currentUser) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
     const contentType = request.headers.get('content-type')
     
     // Handle form submission (text content)
@@ -34,7 +27,7 @@ export async function POST(request: NextRequest) {
         VALUES (?, ?, ?, ?, ?)
       `)
 
-      const result = stmt.run(title, description || null, content || null, published_date || new Date().toISOString().split('T')[0], currentUser.id)
+      const result = stmt.run(title, description || null, content || null, published_date || new Date().toISOString().split('T')[0], currentUser?.id || null)
 
       return NextResponse.json({
         success: true,
@@ -83,7 +76,7 @@ export async function POST(request: NextRequest) {
       description || null,
       publicPath,
       published_date || new Date().toISOString().split('T')[0],
-      currentUser.id
+      currentUser?.id || null
     )
 
     return NextResponse.json({

@@ -22,13 +22,6 @@ try {
 export async function POST(request: NextRequest) {
   try {
     const currentUser = getCurrentUser(request)
-    if (!currentUser) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
     const contentType = request.headers.get('content-type')
     
     // Handle URL submission
@@ -63,8 +56,8 @@ export async function POST(request: NextRequest) {
 
       // Save URL to database
       const stmt = db.prepare(`
-        INSERT INTO images (filename, original_name, section, subsection, title, description, file_path, file_size, mime_type, is_url, uploaded_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO images (filename, original_name, section, subsection, title, description, file_path, file_size, mime_type, is_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       const result = stmt.run(
@@ -77,8 +70,7 @@ export async function POST(request: NextRequest) {
         imageUrl,
         0,
         'image/url',
-        1,
-        currentUser.id
+        1
       )
 
       return NextResponse.json({
@@ -130,8 +122,8 @@ export async function POST(request: NextRequest) {
 
     // Save to database
     const stmt = db.prepare(`
-      INSERT INTO images (filename, original_name, section, subsection, title, description, file_path, file_size, mime_type, is_url, uploaded_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO images (filename, original_name, section, subsection, title, description, file_path, file_size, mime_type, is_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
     const result = stmt.run(
@@ -144,8 +136,7 @@ export async function POST(request: NextRequest) {
       publicPath,
       file.size,
       file.type,
-      0,
-      currentUser.id
+      0
     )
 
     return NextResponse.json({
@@ -175,31 +166,24 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const currentUser = getCurrentUser(request)
     const { searchParams } = new URL(request.url)
     const section = searchParams.get('section')
     const subsection = searchParams.get('subsection')
 
-    let query = 'SELECT i.*, u.name as uploaded_by_name FROM images i LEFT JOIN users u ON i.uploaded_by = u.id WHERE i.is_active = 1'
+    let query = 'SELECT * FROM images WHERE is_active = 1'
     const params: any[] = []
 
     if (section) {
-      query += ' AND i.section = ?'
+      query += ' AND section = ?'
       params.push(section)
     }
 
     if (subsection) {
-      query += ' AND i.subsection = ?'
+      query += ' AND subsection = ?'
       params.push(subsection)
     }
 
-    // If user is logged in, show only their images for management
-    if (currentUser && searchParams.get('manage') === 'true') {
-      query += ' AND i.uploaded_by = ?'
-      params.push(currentUser.id)
-    }
-
-    query += ' ORDER BY i.uploaded_at DESC'
+    query += ' ORDER BY uploaded_at DESC'
 
     const images = db.prepare(query).all(...params)
 

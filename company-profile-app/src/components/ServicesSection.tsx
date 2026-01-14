@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, FlaskConical, Hammer, Tag, Package, Truck, Ship, ArrowRight, Cog } from 'lucide-react'
 import { useImages } from '@/hooks/useImages'
 
@@ -15,7 +15,7 @@ type ServiceSectionKey =
 
 const ServicesSection = () => {
   const [activeSection, setActiveSection] = useState<ServiceSectionKey>('sourcing')
-  const { imageUrls } = useImages('services', activeSection)
+  const { imageUrls } = useImages('services')
 
   const serviceSections: { id: ServiceSectionKey; title: string }[] = [
     { id: 'sourcing', title: 'Sourcing' },
@@ -79,10 +79,25 @@ const ServicesSection = () => {
     }
   }
 
+  // Listen for subsection change events from navbar
+  useEffect(() => {
+    const handleSubsectionChange = (event: CustomEvent) => {
+      if (event.detail.section === 'services') {
+        const subsectionKey = event.detail.subsection.replace(/-/g, '-') as ServiceSectionKey
+        if (Object.keys(sectionContent).includes(subsectionKey)) {
+          setActiveSection(subsectionKey)
+        }
+      }
+    }
+    
+    window.addEventListener('changeSubsection', handleSubsectionChange as EventListener)
+    return () => window.removeEventListener('changeSubsection', handleSubsectionChange as EventListener)
+  }, [])
+
   return (
     <section id="services" className="bg-white">
       {/* Hero Image */}
-      <div className="w-full h-80 bg-gray-100 relative flex items-center justify-center" style={{
+      <div className="w-full h-[85vh] bg-gray-100 relative flex items-center justify-center" style={{
         backgroundImage: imageUrls[0] ? `url("${imageUrls[0]}")` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center'

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowRight, Gem } from 'lucide-react'
 import { useImages } from '@/hooks/useImages'
 
@@ -11,7 +11,7 @@ type ProductSectionKey =
 
 const ProductsSection = () => {
   const [activeSection, setActiveSection] = useState<ProductSectionKey>('coltan')
-  const { imageUrls } = useImages('products', activeSection)
+  const { imageUrls } = useImages('products')
 
   const productSections: { id: ProductSectionKey; title: string }[] = [
     { id: 'coltan', title: 'Coltan' },
@@ -49,10 +49,25 @@ const ProductsSection = () => {
     }
   }
 
+  // Listen for subsection change events from navbar
+  useEffect(() => {
+    const handleSubsectionChange = (event: CustomEvent) => {
+      if (event.detail.section === 'products') {
+        const subsectionKey = event.detail.subsection as ProductSectionKey
+        if (Object.keys(sectionContent).includes(subsectionKey)) {
+          setActiveSection(subsectionKey)
+        }
+      }
+    }
+    
+    window.addEventListener('changeSubsection', handleSubsectionChange as EventListener)
+    return () => window.removeEventListener('changeSubsection', handleSubsectionChange as EventListener)
+  }, [])
+
   return (
     <section id="products" className="bg-white">
       {/* Hero Image */}
-      <div className="w-full h-80 bg-gray-100 relative flex items-center justify-center" style={{
+      <div className="w-full h-[85vh] bg-gray-100 relative flex items-center justify-center" style={{
         backgroundImage: imageUrls[0] ? `url("${imageUrls[0]}")` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center'

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowRight, Shield } from 'lucide-react'
 import { useImages } from '@/hooks/useImages'
 
@@ -12,7 +12,7 @@ type PolicySectionKey =
 
 const PoliciesSection = () => {
   const [activeSection, setActiveSection] = useState<PolicySectionKey>('environmental-policy')
-  const { imageUrls } = useImages('policies', activeSection)
+  const { imageUrls } = useImages('policies')
 
   const policySections: { id: PolicySectionKey; title: string }[] = [
     { id: 'environmental-policy', title: 'Environmental Policy' },
@@ -76,10 +76,25 @@ const PoliciesSection = () => {
     }
   }
 
+  // Listen for subsection change events from navbar
+  useEffect(() => {
+    const handleSubsectionChange = (event: CustomEvent) => {
+      if (event.detail.section === 'policies') {
+        const subsectionKey = event.detail.subsection as PolicySectionKey
+        if (Object.keys(sectionContent).includes(subsectionKey)) {
+          setActiveSection(subsectionKey)
+        }
+      }
+    }
+    
+    window.addEventListener('changeSubsection', handleSubsectionChange as EventListener)
+    return () => window.removeEventListener('changeSubsection', handleSubsectionChange as EventListener)
+  }, [])
+
   return (
     <section id="policies" className="bg-white">
       {/* Hero Image */}
-      <div className="w-full h-80 bg-gray-100 relative flex items-center justify-center" style={{
+      <div className="w-full h-[85vh] bg-gray-100 relative flex items-center justify-center" style={{
         backgroundImage: imageUrls[0] ? `url("${imageUrls[0]}")` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center'

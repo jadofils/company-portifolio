@@ -1142,7 +1142,7 @@ export default function AdminDashboard() {
                                   </div>
                                   {'image_url' in item && item.image_url && (
                                     <div className="mt-2">
-                                      <img src={item.image_url} alt={item.title} className="h-16 w-auto rounded" />
+                                      <img src={item.image_url} alt={item.title} className="w-full h-[60vh] object-cover rounded" />
                                     </div>
                                   )}
                                 </>

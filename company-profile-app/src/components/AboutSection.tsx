@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useImages } from '@/hooks/useImages'
 import { useContent } from '@/hooks/useContent'
 import { Building } from 'lucide-react'
@@ -16,7 +16,7 @@ const AboutSection = () => {
   const { getContentBySection } = useContent()
   const aboutContent = getContentBySection('about')
   const [activeSection, setActiveSection] = useState('corporate-governance')
-  const { imageUrls } = useImages('about', activeSection)
+  const { imageUrls } = useImages('about')
 
   // Static fallback content
   const staticContent: Record<string, { title: string; content: string }> = {
@@ -91,10 +91,22 @@ const AboutSection = () => {
 
   const currentContent = getCurrentContent(activeSection)
 
+  // Listen for subsection change events from navbar
+  useEffect(() => {
+    const handleSubsectionChange = (event: CustomEvent) => {
+      if (event.detail.section === 'about') {
+        setActiveSection(event.detail.subsection)
+      }
+    }
+    
+    window.addEventListener('changeSubsection', handleSubsectionChange as EventListener)
+    return () => window.removeEventListener('changeSubsection', handleSubsectionChange as EventListener)
+  }, [])
+
   return (
     <section id="about" className="bg-white">
       {/* Hero Image */}
-      <div className="w-full h-80 bg-gray-100 relative flex items-center justify-center" style={{
+      <div className="w-full h-[85vh] bg-gray-100 relative flex items-center justify-center" style={{
         backgroundImage: imageUrls[0] ? `url("${imageUrls[0]}")` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center'
@@ -146,7 +158,7 @@ const AboutSection = () => {
                     <img 
                       src={currentContent.image_url} 
                       alt={currentContent.title}
-                      className="w-full h-64 object-cover rounded"
+                      className="w-full h-[85vh] object-cover rounded"
                     />
                   </div>
                 )}

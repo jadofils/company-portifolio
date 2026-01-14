@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu, X, ChevronDown, Building2 } from 'lucide-react'
+import { Menu, X, ChevronDown, Building2, Users, History, Target, Leaf, Search, FlaskConical, Hammer, Tag, Package, Truck, Ship, Gem, Shield, FileText, Scale, Award } from 'lucide-react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useSettings } from '@/hooks/useSettings'
 import { useContent } from '@/hooks/useContent'
+import { useImages } from '@/hooks/useImages'
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -12,6 +13,12 @@ const Navbar = () => {
   const pathname = usePathname()
   const { settings } = useSettings()
   const { getContentBySection } = useContent()
+  
+  // Get images for each section
+  const { imageUrls: aboutImages } = useImages('about')
+  const { imageUrls: servicesImages } = useImages('services')
+  const { imageUrls: productsImages } = useImages('products')
+  const { imageUrls: policiesImages } = useImages('policies')
 
   // Get dynamic subsections from database
   const aboutContent = getContentBySection('about')
@@ -19,22 +26,86 @@ const Navbar = () => {
   const productsContent = getContentBySection('products')
   const policiesContent = getContentBySection('policies')
 
-  // Static fallback data
-  const staticAbout = ['Corporate Governance', 'Our History', 'Leadership Team', 'Mission & Vision', 'Sustainability']
-  const staticServices = ['Sourcing', 'Testing & Analysis', 'Crushing', 'Tagging', 'Packing', 'Loading', 'Shipping']
-  const staticProducts = ['Coltan', 'Cassiterite', 'Tungsten']
-  const staticPolicies = ['Environmental Policy', 'Safety Standards', 'Quality Assurance', 'Compliance']
+  // Static fallback data with icons
+  const staticAbout = [
+    { title: 'Corporate Governance', icon: Scale },
+    { title: 'Our History', icon: History },
+    { title: 'Leadership Team', icon: Users },
+    { title: 'Mission & Vision', icon: Target },
+    { title: 'Sustainability', icon: Leaf }
+  ]
+  const staticServices = [
+    { title: 'Sourcing', icon: Search },
+    { title: 'Testing & Analysis', icon: FlaskConical },
+    { title: 'Crushing', icon: Hammer },
+    { title: 'Tagging', icon: Tag },
+    { title: 'Packing', icon: Package },
+    { title: 'Loading', icon: Truck },
+    { title: 'Shipping', icon: Ship }
+  ]
+  const staticProducts = [
+    { title: 'Coltan', icon: Gem },
+    { title: 'Cassiterite', icon: Gem },
+    { title: 'Tungsten', icon: Gem }
+  ]
+  const staticPolicies = [
+    { title: 'Environmental Policy', icon: Leaf },
+    { title: 'Safety Standards', icon: Shield },
+    { title: 'Quality Assurance', icon: Award },
+    { title: 'Compliance', icon: FileText }
+  ]
 
   // Combine static and dynamic content - show all static items plus any new dynamic ones
-  const aboutItems = [...staticAbout, ...aboutContent.filter(item => !staticAbout.includes(item.title)).map(item => item.title)]
-  const services = [...staticServices, ...servicesContent.filter(item => !staticServices.includes(item.title)).map(item => item.title)]
-  const products = [...staticProducts, ...productsContent.filter(item => !staticProducts.includes(item.title)).map(item => item.title)]
-  const policies = [...staticPolicies, ...policiesContent.filter(item => !staticPolicies.includes(item.title)).map(item => item.title)]
+  const aboutItems = [
+    ...staticAbout.map((item, index) => ({
+      ...item,
+      image_url: aboutImages[index] || null
+    })),
+    ...aboutContent.filter(item => !staticAbout.some(s => s.title === item.title)).map(item => ({
+      title: item.title,
+      icon: Building2,
+      image_url: item.image_url
+    }))
+  ]
+  const services = [
+    ...staticServices.map((item, index) => ({
+      ...item,
+      image_url: servicesImages[index] || null
+    })),
+    ...servicesContent.filter(item => !staticServices.some(s => s.title === item.title)).map(item => ({
+      title: item.title,
+      icon: Building2,
+      image_url: item.image_url
+    }))
+  ]
+  const products = [
+    ...staticProducts.map((item, index) => ({
+      ...item,
+      image_url: productsImages[index] || null
+    })),
+    ...productsContent.filter(item => !staticProducts.some(s => s.title === item.title)).map(item => ({
+      title: item.title,
+      icon: Gem,
+      image_url: item.image_url
+    }))
+  ]
+  const policies = [
+    ...staticPolicies.map((item, index) => ({
+      ...item,
+      image_url: policiesImages[index] || null
+    })),
+    ...policiesContent.filter(item => !staticPolicies.some(s => s.title === item.title)).map(item => ({
+      title: item.title,
+      icon: Shield,
+      image_url: item.image_url
+    }))
+  ]
 
-  const scrollToSection = (sectionId: string) => {
+  const scrollToSection = (sectionId: string, subsection?: string) => {
     // If not on home page, navigate to home first
     if (pathname !== '/') {
-      router.push(`/#${sectionId}`)
+      const hash = subsection ? `${sectionId}-${subsection}` : sectionId
+      router.push(`/#${hash}`)
       return
     }
     
@@ -42,6 +113,16 @@ const Navbar = () => {
     const element = document.getElementById(sectionId)
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' })
+      
+      // If subsection specified, trigger subsection change after scroll
+      if (subsection) {
+        setTimeout(() => {
+          const event = new CustomEvent('changeSubsection', { 
+            detail: { section: sectionId, subsection } 
+          })
+          window.dispatchEvent(event)
+        }, 500)
+      }
     }
     setIsOpen(false)
   }
@@ -88,15 +169,32 @@ const Navbar = () => {
                 >
                   About Us <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
-                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-2">
                     {aboutItems.map((item) => (
                       <button
-                        key={item}
-                        onClick={() => scrollToSection('about')}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
+                        key={item.title}
+                        onClick={() => {
+                          const subsection = item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+                          scrollToSection('about', subsection)
+                        }}
+                        className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 text-left"
                       >
-                        {item}
+                        <div className="w-12 h-8 mr-3 flex items-center justify-center bg-gray-100 rounded overflow-hidden">
+                          {item.image_url ? (
+                            <img 
+                              src={item.image_url} 
+                              alt={item.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                              }}
+                            />
+                          ) : null}
+                          <item.icon className={`h-4 w-4 text-gray-500 ${item.image_url ? 'hidden' : ''}`} />
+                        </div>
+                        <span>{item.title}</span>
                       </button>
                     ))}
                   </div>
@@ -111,15 +209,32 @@ const Navbar = () => {
                 >
                   Services <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
-                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-2">
                     {services.map((service) => (
                       <button
-                        key={service}
-                        onClick={() => scrollToSection('services')}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
+                        key={service.title}
+                        onClick={() => {
+                          const subsection = service.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+                          scrollToSection('services', subsection)
+                        }}
+                        className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 text-left"
                       >
-                        {service}
+                        <div className="w-12 h-8 mr-3 flex items-center justify-center bg-gray-100 rounded overflow-hidden">
+                          {service.image_url ? (
+                            <img 
+                              src={service.image_url} 
+                              alt={service.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                              }}
+                            />
+                          ) : null}
+                          <service.icon className={`h-4 w-4 text-gray-500 ${service.image_url ? 'hidden' : ''}`} />
+                        </div>
+                        <span>{service.title}</span>
                       </button>
                     ))}
                   </div>
@@ -134,15 +249,32 @@ const Navbar = () => {
                 >
                   Products <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
-                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-2">
                     {products.map((product) => (
                       <button
-                        key={product}
-                        onClick={() => scrollToSection('products')}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
+                        key={product.title}
+                        onClick={() => {
+                          const subsection = product.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+                          scrollToSection('products', subsection)
+                        }}
+                        className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 text-left"
                       >
-                        {product}
+                        <div className="w-12 h-8 mr-3 flex items-center justify-center bg-gray-100 rounded overflow-hidden">
+                          {product.image_url ? (
+                            <img 
+                              src={product.image_url} 
+                              alt={product.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                              }}
+                            />
+                          ) : null}
+                          <product.icon className={`h-4 w-4 text-gray-500 ${product.image_url ? 'hidden' : ''}`} />
+                        </div>
+                        <span>{product.title}</span>
                       </button>
                     ))}
                   </div>
@@ -157,15 +289,32 @@ const Navbar = () => {
                 >
                   Policies <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
-                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-2">
                     {policies.map((policy) => (
                       <button
-                        key={policy}
-                        onClick={() => scrollToSection('policies')}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
+                        key={policy.title}
+                        onClick={() => {
+                          const subsection = policy.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+                          scrollToSection('policies', subsection)
+                        }}
+                        className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 text-left"
                       >
-                        {policy}
+                        <div className="w-12 h-8 mr-3 flex items-center justify-center bg-gray-100 rounded overflow-hidden">
+                          {policy.image_url ? (
+                            <img 
+                              src={policy.image_url} 
+                              alt={policy.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                              }}
+                            />
+                          ) : null}
+                          <policy.icon className={`h-4 w-4 text-gray-500 ${policy.image_url ? 'hidden' : ''}`} />
+                        </div>
+                        <span>{policy.title}</span>
                       </button>
                     ))}
                   </div>

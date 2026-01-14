@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import db, { initDatabase } from '@/lib/database'
+import { db, initDatabase } from '@/lib/database-vercel'
 
 initDatabase()
 
 export async function GET() {
   try {
-    const users = db.prepare('SELECT id, email, name, role, created_at FROM users').all()
+    const users = await db.query('SELECT id, email, name, role, created_at FROM users')
     console.log('All users in database:', users)
     
     return NextResponse.json({

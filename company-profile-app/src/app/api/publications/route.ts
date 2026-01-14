@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
-import db, { initDatabase } from '@/lib/database'
+import { db, initDatabase } from '@/lib/database-vercel'
 import { getCurrentUser } from '@/lib/auth'
 
 initDatabase()
@@ -22,17 +22,14 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const stmt = db.prepare(`
-        INSERT INTO publications (title, description, content, published_date)
-        VALUES (?, ?, ?, ?)
-      `)
-
-      const result = stmt.run(title, description || null, content || null, published_date || new Date().toISOString().split('T')[0])
+      await db.query(
+        'INSERT INTO publications (title, description, content, published_date) VALUES (?, ?, ?, ?)',
+        [title, description || null, content || null, published_date || new Date().toISOString().split('T')[0]]
+      )
 
       return NextResponse.json({
         success: true,
-        message: 'Publication created successfully',
-        id: result.lastInsertRowid
+        message: 'Publication created successfully'
       })
     }
     
@@ -66,22 +63,14 @@ export async function POST(request: NextRequest) {
     await writeFile(filePath, buffer)
 
     // Save to database
-    const stmt = db.prepare(`
-      INSERT INTO publications (title, description, pdf_path, published_date)
-      VALUES (?, ?, ?, ?)
-    `)
-
-    const result = stmt.run(
-      title,
-      description || null,
-      publicPath,
-      published_date || new Date().toISOString().split('T')[0]
+    await db.query(
+      'INSERT INTO publications (title, description, pdf_path, published_date) VALUES (?, ?, ?, ?)',
+      [title, description || null, publicPath, published_date || new Date().toISOString().split('T')[0]]
     )
 
     return NextResponse.json({
       success: true,
       message: 'Publication uploaded successfully',
-      id: result.lastInsertRowid,
       path: publicPath
     })
 
@@ -96,11 +85,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const publications = db.prepare(`
-      SELECT * FROM publications 
-      WHERE is_active = 1 
-      ORDER BY published_date DESC, created_at DESC
-    `).all()
+    const publications = await db.query(
+      'SELECT * FROM publications WHERE is_active = 1 ORDER BY published_date DESC, created_at DESC'
+    )
 
     return NextResponse.json({ publications })
   } catch (error) {
@@ -120,8 +107,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
-    const stmt = db.prepare('UPDATE publications SET is_active = 0 WHERE id = ?')
-    stmt.run(id)
+    await db.query('UPDATE publications SET is_active = 0 WHERE id = ?', [id])
     
     return NextResponse.json({ success: true, message: 'Publication deleted successfully' })
   } catch (error) {

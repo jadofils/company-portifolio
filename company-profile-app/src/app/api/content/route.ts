@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db, { initDatabase } from '@/lib/database'
+import { db, initDatabase } from '@/lib/database-vercel'
 
 // Initialize database
 initDatabase()
@@ -7,10 +7,9 @@ initDatabase()
 // GET - Fetch all content
 export async function GET() {
   try {
-    const content = db.prepare(`
-      SELECT * FROM company_content 
-      ORDER BY section, subsection, updated_at DESC
-    `).all()
+    const content = await db.query(
+      'SELECT * FROM company_content ORDER BY section, subsection, updated_at DESC'
+    )
 
     return NextResponse.json({ success: true, content })
   } catch (error) {
@@ -28,16 +27,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Section, title, and content are required' }, { status: 400 })
     }
 
-    const insertContent = db.prepare(`
-      INSERT INTO company_content (section, subsection, title, content, image_url)
-      VALUES (?, ?, ?, ?, ?)
-    `)
-
-    const result = insertContent.run(section, subsection || null, title, content, image_url || null)
+    await db.query(
+      'INSERT INTO company_content (section, subsection, title, content, image_url) VALUES (?, ?, ?, ?, ?)',
+      [section, subsection || null, title, content, image_url || null]
+    )
 
     return NextResponse.json({ 
       success: true, 
-      id: result.lastInsertRowid,
       message: 'Content created successfully' 
     })
   } catch (error) {
@@ -55,17 +51,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'ID, section, title, and content are required' }, { status: 400 })
     }
 
-    const updateContent = db.prepare(`
-      UPDATE company_content 
-      SET section = ?, subsection = ?, title = ?, content = ?, image_url = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `)
-
-    const result = updateContent.run(section, subsection || null, title, content, image_url || null, id)
-
-    if (result.changes === 0) {
-      return NextResponse.json({ success: false, error: 'Content not found' }, { status: 404 })
-    }
+    await db.query(
+      'UPDATE company_content SET section = ?, subsection = ?, title = ?, content = ?, image_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [section, subsection || null, title, content, image_url || null, id]
+    )
 
     return NextResponse.json({ success: true, message: 'Content updated successfully' })
   } catch (error) {
@@ -83,12 +72,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Content ID is required' }, { status: 400 })
     }
 
-    const deleteContent = db.prepare('DELETE FROM company_content WHERE id = ?')
-    const result = deleteContent.run(id)
-
-    if (result.changes === 0) {
-      return NextResponse.json({ success: false, error: 'Content not found' }, { status: 404 })
-    }
+    await db.query('DELETE FROM company_content WHERE id = ?', [id])
 
     return NextResponse.json({ success: true, message: 'Content deleted successfully' })
   } catch (error) {

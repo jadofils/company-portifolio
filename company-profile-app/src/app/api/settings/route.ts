@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db, { initDatabase } from '@/lib/database'
+import { db, initDatabase } from '@/lib/database-vercel'
 
 initDatabase()
 
 export async function GET() {
   try {
-    const settings = db.prepare('SELECT * FROM settings').all()
+    const settings = await db.query('SELECT * FROM settings')
     const settingsObj = settings.reduce((acc: any, setting: any) => {
       acc[setting.key] = setting.value
       return acc
@@ -26,12 +26,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Key and value are required' }, { status: 400 })
     }
 
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO settings (key, value, updated_at) 
-      VALUES (?, ?, CURRENT_TIMESTAMP)
-    `)
-    
-    stmt.run(key, value)
+    await db.query(
+      'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+      [key, value]
+    )
     
     return NextResponse.json({ success: true, message: 'Setting updated successfully' })
   } catch (error) {
@@ -48,24 +46,14 @@ export async function PUT(request: NextRequest) {
     const settings = await request.json()
     console.log('Received settings for update:', settings)
     
-    // Check if database is accessible
-    try {
-      db.prepare('SELECT 1').get()
-    } catch (dbError) {
-      console.error('Database not accessible:', dbError)
-      return NextResponse.json({ error: 'Database not accessible' }, { status: 500 })
-    }
-    
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO settings (key, value, updated_at) 
-      VALUES (?, ?, CURRENT_TIMESTAMP)
-    `)
-    
-    // Use individual statements instead of transaction for better compatibility
+    // Use individual statements for better compatibility
     for (const [key, value] of Object.entries(settings)) {
       try {
         console.log(`Updating setting: ${key} = ${value}`)
-        stmt.run(key, String(value))
+        await db.query(
+          'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+          [key, String(value)]
+        )
       } catch (stmtError) {
         console.error(`Error updating ${key}:`, stmtError)
         const errorMessage = stmtError instanceof Error ? stmtError.message : 'Unknown error'

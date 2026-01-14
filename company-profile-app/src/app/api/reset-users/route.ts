@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-import db from '@/lib/database'
+import { db } from '@/lib/database-vercel'
 
 export async function POST() {
   try {
     // Clear existing users
-    db.prepare('DELETE FROM users').run()
+    await db.query('DELETE FROM users')
     
     // Reseed users
     const users = [
@@ -14,15 +14,13 @@ export async function POST() {
       { email: 'admin@gmail.com', password: 'Admin@12', name: 'Administrator' }
     ]
     
-    const insertUser = db.prepare(`
-      INSERT INTO users (email, password, name, role) 
-      VALUES (?, ?, ?, ?)
-    `)
-    
-    users.forEach(user => {
+    for (const user of users) {
       const hashedPassword = bcrypt.hashSync(user.password, 10)
-      insertUser.run(user.email, hashedPassword, user.name, 'admin')
-    })
+      await db.query(
+        'INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)',
+        [user.email, hashedPassword, user.name, 'admin']
+      )
+    }
     
     return NextResponse.json({
       success: true,

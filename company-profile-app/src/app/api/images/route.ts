@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
-import db, { initDatabase } from '@/lib/database'
+import { db, initDatabase } from '@/lib/database-vercel'
 import { getCurrentUser } from '@/lib/auth'
 
 initDatabase()
 
-// Ensure is_url column exists
+// Ensure is_url column exists (PostgreSQL compatible)
 try {
-  const columns = db.prepare("PRAGMA table_info(images)").all() as any[]
-  const hasIsUrlColumn = columns.some(col => col.name === 'is_url')
-  
-  if (!hasIsUrlColumn) {
-    db.exec('ALTER TABLE images ADD COLUMN is_url BOOLEAN DEFAULT 0')
-    console.log('Added is_url column to images table')
-  }
+  // This will be handled by the database adapter
+  console.log('Database schema will be managed by the adapter')
 } catch (error) {
   console.error('Database migration error:', error)
 }

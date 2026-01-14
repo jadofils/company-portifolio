@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db, { initDatabase } from '@/lib/database'
+import { db, initDatabase } from '@/lib/database-vercel'
 
 initDatabase()
 
@@ -24,17 +24,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Save to database
-    const stmt = db.prepare(`
-      INSERT INTO contact_messages (name, email, company, message)
-      VALUES (?, ?, ?, ?)
-    `)
-
-    const result = stmt.run(name, email, company || null, message)
+    await db.query(
+      'INSERT INTO contact_messages (name, email, company, message) VALUES (?, ?, ?, ?)',
+      [name, email, company || null, message]
+    )
 
     return NextResponse.json({
       success: true,
-      message: 'Message sent successfully',
-      id: result.lastInsertRowid
+      message: 'Message sent successfully'
     })
 
   } catch (error) {
@@ -48,10 +45,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    const messages = db.prepare(`
-      SELECT * FROM contact_messages 
-      ORDER BY created_at DESC
-    `).all()
+    const messages = await db.query(
+      'SELECT * FROM contact_messages ORDER BY created_at DESC'
+    )
 
     return NextResponse.json({ messages })
   } catch (error) {
@@ -74,8 +70,10 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const stmt = db.prepare('UPDATE contact_messages SET status = ? WHERE id = ?')
-    stmt.run(status, id)
+    await db.query(
+      'UPDATE contact_messages SET status = ? WHERE id = ?',
+      [status, id]
+    )
 
     return NextResponse.json({
       success: true,

@@ -122,6 +122,24 @@ export async function initDatabase() {
       }
     }
 
+    // Initialize default settings
+    const settingsCount = await db.query('SELECT COUNT(*) as count FROM settings')
+    const sCount = Array.isArray(settingsCount) ? settingsCount[0].count : settingsCount.count
+    
+    if (sCount === 0) {
+      const defaultSettings = [
+        ['company_name', 'MineralsCorp'],
+        ['company_logo', '/logo.png'],
+        ['company_address', '123 Mining District\nKigali, Rwanda'],
+        ['company_phone', '+250 788 123 456'],
+        ['company_email', 'info@mineralscorp.com']
+      ]
+      
+      for (const [key, value] of defaultSettings) {
+        await db.query('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value])
+      }
+    }
+
   } catch (error) {
     console.error('Database initialization error:', error)
   }

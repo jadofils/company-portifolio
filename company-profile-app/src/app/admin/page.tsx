@@ -603,19 +603,22 @@ export default function AdminDashboard() {
 
     setUploading(true)
     try {
-      const url = isEditing ? '/api/content' : '/api/content'
       const method = isEditing ? 'PUT' : 'POST'
       const body = isEditing 
         ? JSON.stringify({ ...contentForm, id: editingContent?.id })
         : JSON.stringify(contentForm)
 
-      const response = await fetch(url, {
+      console.log('Submitting content:', { method, body, isEditing })
+
+      const response = await fetch('/api/content', {
         method,
         headers: { 'Content-Type': 'application/json' },
         body
       })
 
       const result = await response.json()
+      console.log('Content submission result:', result)
+      
       if (result.success) {
         alert(isEditing ? 'Content updated successfully!' : 'Content saved successfully!')
         setContentForm({ section: 'about', subsection: '', title: '', content: '', image_url: '' })
@@ -623,11 +626,12 @@ export default function AdminDashboard() {
         setEditingContent(null)
         fetchContent()
       } else {
-        alert('Failed to save content: ' + result.error)
+        console.error('Content save failed:', result)
+        alert('Failed to save content: ' + (result.error || 'Unknown error'))
       }
     } catch (error) {
       console.error('Content error:', error)
-      alert('Failed to save content')
+      alert('Failed to save content: Network error')
     }
     setUploading(false)
   }
@@ -653,6 +657,8 @@ export default function AdminDashboard() {
   const deleteContent = async (id: number) => {
     if (!confirm('Are you sure you want to delete this content?')) return
     
+    console.log('Deleting content with ID:', id)
+    
     try {
       const response = await fetch('/api/content', {
         method: 'DELETE',
@@ -661,14 +667,18 @@ export default function AdminDashboard() {
       })
 
       const result = await response.json()
+      console.log('Delete result:', result)
+      
       if (result.success) {
+        alert('Content deleted successfully!')
         fetchContent()
       } else {
-        alert('Failed to delete content')
+        console.error('Delete failed:', result)
+        alert('Failed to delete content: ' + (result.error || 'Unknown error'))
       }
     } catch (error) {
       console.error('Delete error:', error)
-      alert('Failed to delete content')
+      alert('Failed to delete content: Network error')
     }
   }
 

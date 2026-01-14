@@ -54,20 +54,20 @@ const Navbar = () => {
   return (
     <nav className="fixed top-0 w-full bg-white shadow-sm z-50 border-b border-gray-200">
       <div className="container-max section-padding">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-20">
           <div className="flex items-center space-x-3">
             {settings.company_logo ? (
               <img 
                 src={settings.company_logo} 
                 alt={`${settings.company_name} Logo`}
-                className="h-8 w-auto"
+                className="h-16 w-auto"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
                   e.currentTarget.nextElementSibling?.classList.remove('hidden')
                 }}
               />
             ) : null}
-            <Building2 className={`h-8 w-8 text-blue-600 ${settings.company_logo ? 'hidden' : ''}`} />
+            <Building2 className={`h-16 w-16 text-blue-600 ${settings.company_logo ? 'hidden' : ''}`} />
             <h1 className="text-xl font-bold text-gray-900">{settings.company_name}</h1>
           </div>
 

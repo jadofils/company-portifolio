@@ -2,9 +2,9 @@ import Database from 'better-sqlite3'
 import path from 'path'
 import bcrypt from 'bcryptjs'
 
-// Create database file in the project root
-const dbPath = path.join(process.cwd(), 'company.db')
-const db = new Database(dbPath)
+// Use in-memory database for serverless environments like Vercel
+const db = new Database(':memory:')
+console.log('Using in-memory SQLite database')
 
 // Initialize database tables
 export function initDatabase() {

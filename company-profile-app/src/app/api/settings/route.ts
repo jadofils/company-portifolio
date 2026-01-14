@@ -42,26 +42,41 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    // Ensure database is initialized
+    initDatabase()
+    
     const settings = await request.json()
     console.log('Received settings for update:', settings)
+    
+    // Check if database is accessible
+    try {
+      db.prepare('SELECT 1').get()
+    } catch (dbError) {
+      console.error('Database not accessible:', dbError)
+      return NextResponse.json({ error: 'Database not accessible' }, { status: 500 })
+    }
     
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO settings (key, value, updated_at) 
       VALUES (?, ?, CURRENT_TIMESTAMP)
     `)
     
-    const transaction = db.transaction(() => {
-      Object.entries(settings).forEach(([key, value]) => {
+    // Use individual statements instead of transaction for better compatibility
+    for (const [key, value] of Object.entries(settings)) {
+      try {
         console.log(`Updating setting: ${key} = ${value}`)
         stmt.run(key, String(value))
-      })
-    })
-    
-    transaction()
+      } catch (stmtError) {
+        console.error(`Error updating ${key}:`, stmtError)
+        const errorMessage = stmtError instanceof Error ? stmtError.message : 'Unknown error'
+        return NextResponse.json({ error: `Failed to update ${key}: ${errorMessage}` }, { status: 500 })
+      }
+    }
     
     return NextResponse.json({ success: true, message: 'Settings updated successfully' })
   } catch (error) {
     console.error('Database error in PUT:', error)
-    return NextResponse.json({ error: 'Failed to update settings: ' + error.message }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: 'Failed to update settings: ' + errorMessage }, { status: 500 })
   }
 }

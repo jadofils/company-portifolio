@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-import db, { initDatabase } from '@/lib/database'
+import { db, initDatabase } from '@/lib/database-vercel'
 
+// Initialize database on first request
 initDatabase()
 
 export async function POST(request: NextRequest) {
@@ -16,7 +17,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user in database
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any
+    const users = await db.query('SELECT * FROM users WHERE email = ?', [email])
+    const user = users[0]
     console.log('User found:', user ? 'Yes' : 'No', 'Email:', email)
 
     if (!user) {

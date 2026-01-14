@@ -1,0 +1,122 @@
+{
+  "users": [
+    {
+      "id": 8,
+      "email": "jasezikeye50@gmail.com",
+      "password": "$2b$10$pLS3k2xtp.DZSOIcDE2IB.ulfUPvBJqO8xhsmWTYw/EYjiQ3QVJBq",
+      "name": "Jase Zikeye",
+      "role": "admin",
+      "created_at": "2026-01-14 15:36:15"
+    },
+    {
+      "id": 9,
+      "email": "yvesmuhire@gmail.com",
+      "password": "$2b$10$y7Ezog/a7BcGvy5YU6j70eb78GHjlEYKIYTsQbo5wEAAGZzl431kO",
+      "name": "Yves Muhire",
+      "role": "admin",
+      "created_at": "2026-01-14 15:36:15"
+    },
+    {
+      "id": 10,
+      "email": "admin@gmail.com",
+      "password": "$2b$10$BmESu2UrnmLAbvkrfSoPjO8T0jlYodflNfVKWJ0bKMuYUjFkASWtS",
+      "name": "Administrator",
+      "role": "admin",
+      "created_at": "2026-01-14 15:36:16"
+    }
+  ],
+  "contact_messages": [
+    {
+      "id": 1,
+      "name": "james",
+      "email": "james@gmail.com",
+      "company": null,
+      "message": "Hello",
+      "created_at": "2026-01-14 14:57:31",
+      "status": "read"
+    },
+    {
+      "id": 2,
+      "name": "Giselle ISHIMWE",
+      "email": "ishimwegiselle184@gmail.com",
+      "company": "wci",
+      "message": "ooh my god",
+      "created_at": "2026-01-14 17:21:57",
+      "status": "unread"
+    }
+  ],
+  "settings": [
+    {
+      "id": 136,
+      "key": "company_name",
+      "value": "Jado-Fils-Mineral Ltd",
+      "updated_at": "2026-01-14 19:36:37"
+    },
+    {
+      "id": 137,
+      "key": "company_address",
+      "value": "123 Mining District\nKigali, Rwanda",
+      "updated_at": "2026-01-14 19:36:37"
+    },
+    {
+      "id": 138,
+      "key": "company_phone",
+      "value": "+250 788 123 456",
+      "updated_at": "2026-01-14 19:36:37"
+    },
+    {
+      "id": 139,
+      "key": "company_email",
+      "value": "jasezikeye50@chrs.com",
+      "updated_at": "2026-01-14 19:36:37"
+    },
+    {
+      "id": 140,
+      "key": "footer_description",
+      "value": "Jado Fils is a Computer and Software Engineer specializing in the design, development, and maintenance of computer systems and software applications. His expertise spans across",
+      "updated_at": "2026-01-14 19:36:37"
+    },
+    {
+      "id": 141,
+      "key": "facebook_url",
+      "value": "https://web.facebook.com/",
+      "updated_at": "2026-01-14 19:36:38"
+    },
+    {
+      "id": 142,
+      "key": "twitter_url",
+      "value": "#",
+      "updated_at": "2026-01-14 19:36:38"
+    },
+    {
+      "id": 143,
+      "key": "linkedin_url",
+      "value": "#",
+      "updated_at": "2026-01-14 19:36:38"
+    },
+    {
+      "id": 144,
+      "key": "instagram_url",
+      "value": "#",
+      "updated_at": "2026-01-14 19:36:38"
+    },
+    {
+      "id": 145,
+      "key": "youtube_url",
+      "value": "#",
+      "updated_at": "2026-01-14 19:36:38"
+    },
+    {
+      "id": 146,
+      "key": "company_logo",
+      "value": "https://www.bing.com/th/id/OIP.CxrYkAXip-DB6K5hYqQN8QHaHa?w=229&h=211&c=8&rs=1&qlt=90&o=6&dpr=1.5&pid=3.1&rm=2",
+      "updated_at": "2026-01-14 19:36:38"
+    },
+    {
+      "id": 147,
+      "key": "admin_password",
+      "value": "Sezikeye@12",
+      "updated_at": "2026-01-14 19:36:38"
+    }
+  ]
+}

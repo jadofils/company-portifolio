@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, initDatabase } from '@/lib/database-vercel'
+import { db, initDatabase, trackChange } from '@/lib/database-vercel'
+import { cache, cacheKeys } from '@/lib/cache'
 
 initDatabase()
 
@@ -24,10 +25,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Save to database
-    await db.query(
-      'INSERT INTO contact_messages (name, email, company, message) VALUES (?, ?, ?, ?)',
+    const result = await db.query(
+      'INSERT INTO contact_messages (name, email, company, message) VALUES ($1, $2, $3, $4) RETURNING id',
       [name, email, company || null, message]
     )
+
+    await trackChange('contact_messages', result[0].id, 'INSERT', null, { name, email, company, message })
+    cache.delete(cacheKeys.contactMessages())
 
     return NextResponse.json({
       success: true,
@@ -45,8 +49,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
+    const cacheKey = cacheKeys.contactMessages()
     const messages = await db.query(
-      'SELECT * FROM contact_messages ORDER BY created_at DESC'
+      'SELECT * FROM contact_messages ORDER BY created_at DESC',
+      [],
+      cacheKey
     )
 
     return NextResponse.json({ messages })
@@ -70,10 +77,16 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    // Get old data for tracking
+    const oldData = await db.query('SELECT * FROM contact_messages WHERE id = $1', [id])
+
     await db.query(
-      'UPDATE contact_messages SET status = ? WHERE id = ?',
+      'UPDATE contact_messages SET status = $1 WHERE id = $2',
       [status, id]
     )
+
+    await trackChange('contact_messages', id, 'UPDATE', oldData[0], { ...oldData[0], status })
+    cache.delete(cacheKeys.contactMessages())
 
     return NextResponse.json({
       success: true,

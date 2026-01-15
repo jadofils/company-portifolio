@@ -15,8 +15,9 @@ type AboutSectionKey =
 const AboutSection = () => {
   const { getContentBySection } = useContent()
   const aboutContent = getContentBySection('about')
-  const [activeSection, setActiveSection] = useState('corporate-governance')
-  const { imageUrls } = useImages('about')
+  const [activeSection, setActiveSection] = useState('about')
+  const { images: aboutImages, refreshImages: refreshAboutImages } = useImages('about')
+  const { images: subsectionImages, refreshImages: refreshSubsectionImages } = useImages('about', activeSection === 'about' ? undefined : activeSection)
 
   // Static fallback content
   const staticContent: Record<string, { title: string; content: string }> = {
@@ -64,8 +65,9 @@ const AboutSection = () => {
     { id: 'sustainability', title: 'Sustainability' }
   ]
 
-  // Combine static sections with dynamic content - show all static plus new dynamic ones
+  // Combine static sections with dynamic content - show main about first, then subsections
   const allSections = [
+    { id: 'about', title: 'About Us' },
     ...staticSections,
     ...aboutContent.filter(item => !staticSections.some(s => s.title === item.title)).map(item => ({
       id: item.subsection || item.title.toLowerCase().replace(/\s+/g, '-'),
@@ -74,6 +76,15 @@ const AboutSection = () => {
   ]
 
   const getCurrentContent = (sectionId: string) => {
+    // If main about section, return general about info
+    if (sectionId === 'about') {
+      return {
+        title: 'About Us',
+        content: 'Welcome to our company. Learn more about our corporate governance, history, leadership team, mission & vision, and sustainability initiatives.',
+        image_url: null
+      }
+    }
+    
     // First check if it's dynamic content
     const dynamicContent = aboutContent.find(item => 
       (item.subsection === sectionId) || 
@@ -90,6 +101,62 @@ const AboutSection = () => {
   }
 
   const currentContent = getCurrentContent(activeSection)
+  
+  // Get the appropriate image for current section/subsection
+  const getCurrentImage = () => {
+    console.log('getCurrentImage called with activeSection:', activeSection)
+    console.log('aboutImages:', aboutImages)
+    console.log('subsectionImages:', subsectionImages)
+    
+    // If main about section, use general about images (where subsection is null)
+    if (activeSection === 'about') {
+      const mainAboutImages = aboutImages.filter(img => img.subsection === null || img.subsection === '')
+      console.log('mainAboutImages:', mainAboutImages)
+      if (mainAboutImages && mainAboutImages.length > 0) {
+        return mainAboutImages[0].file_path
+      }
+      // Fallback to static image for main about section
+      return 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=600&fit=crop'
+    }
+    
+    // For subsections, try subsection-specific images first
+    console.log('Looking for subsection images for:', activeSection)
+    if (subsectionImages && subsectionImages.length > 0) {
+      console.log('Found subsection images:', subsectionImages)
+      return subsectionImages[0].file_path
+    }
+    
+    // Then try content image_url from database content
+    if (currentContent?.image_url) {
+      console.log('Using content image_url:', currentContent.image_url)
+      return currentContent.image_url
+    }
+    
+    // Static fallback images for each subsection
+    const staticImages = {
+      'corporate-governance': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=600&fit=crop',
+      'our-history': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&h=600&fit=crop',
+      'leadership-team': 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=600&fit=crop',
+      'mission-vision': 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=600&fit=crop',
+      'sustainability': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&h=600&fit=crop'
+    }
+    
+    if (staticImages[activeSection as keyof typeof staticImages]) {
+      console.log('Using static fallback image for:', activeSection)
+      return staticImages[activeSection as keyof typeof staticImages]
+    }
+    
+    // Finally try general about section images as fallback
+    const mainAboutImages = aboutImages.filter(img => img.subsection === null || img.subsection === '')
+    if (mainAboutImages && mainAboutImages.length > 0) {
+      console.log('Using fallback main about image:', mainAboutImages[0].file_path)
+      return mainAboutImages[0].file_path
+    }
+    
+    // Final fallback to static about image
+    console.log('Using final static fallback')
+    return 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=600&fit=crop'
+  }
 
   // Listen for subsection change events from navbar
   useEffect(() => {
@@ -103,18 +170,29 @@ const AboutSection = () => {
     return () => window.removeEventListener('changeSubsection', handleSubsectionChange as EventListener)
   }, [])
 
+  // Refresh images when activeSection changes
+  useEffect(() => {
+    if (activeSection === 'about') {
+      refreshAboutImages()
+    } else {
+      refreshSubsectionImages()
+    }
+  }, [activeSection])
+
+  const currentImage = getCurrentImage()
+
   return (
     <section id="about" className="bg-white">
       {/* Hero Image */}
       <div className="w-full h-[85vh] bg-gray-100 relative flex items-center justify-center" style={{
-        backgroundImage: imageUrls[0] ? `url("${imageUrls[0]}")` : 'none',
+        backgroundImage: currentImage ? `url("${currentImage}")` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       }}>
-        {!imageUrls[0] && <Building className="h-24 w-24 text-gray-400" />}
+        {!currentImage && <Building className="h-24 w-24 text-gray-400" />}
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="w-full h-full bg-black/30 flex items-center justify-center relative z-10">
-          <h2 className="text-4xl font-bold text-white">About Us</h2>
+          <h2 className="text-4xl font-bold text-white">{currentContent?.title || 'About Us'}</h2>
         </div>
       </div>
       
@@ -153,12 +231,13 @@ const AboutSection = () => {
                 <div className="text-gray-600 leading-relaxed whitespace-pre-line">
                   {currentContent?.content}
                 </div>
-                {currentContent?.image_url && (
+                {/* Show additional subsection image if different from hero */}
+                {currentContent?.image_url && currentContent.image_url !== currentImage && (
                   <div className="mt-6">
                     <img 
                       src={currentContent.image_url} 
                       alt={currentContent.title}
-                      className="w-full h-[85vh] object-cover rounded"
+                      className="w-full h-[60vh] object-cover rounded"
                     />
                   </div>
                 )}

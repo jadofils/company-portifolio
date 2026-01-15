@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
-import { db, initDatabase } from '@/lib/database-vercel'
-import { getCurrentUser } from '@/lib/auth'
+import { db, initDatabase, trackChange } from '@/lib/database-vercel'
+import { cache, cacheKeys } from '@/lib/cache'
 
 initDatabase()
 
-// Ensure is_url column exists (PostgreSQL compatible)
-try {
-  // This will be handled by the database adapter
-  console.log('Database schema will be managed by the adapter')
-} catch (error) {
-  console.error('Database migration error:', error)
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const currentUser = getCurrentUser(request)
     const contentType = request.headers.get('content-type')
     
     // Handle URL submission
@@ -42,20 +33,19 @@ export async function POST(request: NextRequest) {
 
       // Check hero section limit and remove oldest if needed
       if (section === 'hero') {
-        const heroImages = db.prepare('SELECT * FROM images WHERE section = ? AND is_active = 1 ORDER BY uploaded_at ASC').all('hero')
+        const heroImages = await db.query('SELECT * FROM images WHERE section = $1 AND is_active = true ORDER BY uploaded_at ASC', [section])
         if (heroImages.length >= 4) {
-          const oldestImage = heroImages[0] as any
-          db.prepare('UPDATE images SET is_active = 0 WHERE id = ?').run(oldestImage.id)
+          const oldestImage = heroImages[0]
+          await db.query('UPDATE images SET is_active = false WHERE id = $1', [oldestImage.id])
+          await trackChange('images', oldestImage.id, 'UPDATE', oldestImage, { ...oldestImage, is_active: false })
         }
       }
 
       // Save URL to database
-      const stmt = db.prepare(`
+      const result = await db.query(`
         INSERT INTO images (filename, original_name, section, subsection, title, description, file_path, file_size, mime_type, is_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `)
-
-      const result = stmt.run(
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
+      `, [
         'url-image',
         title || 'URL Image',
         section,
@@ -65,13 +55,15 @@ export async function POST(request: NextRequest) {
         imageUrl,
         0,
         'image/url',
-        1
-      )
+        true
+      ])
+
+      await trackChange('images', result[0].id, 'INSERT', null, { imageUrl, section, subsection, title, description })
 
       return NextResponse.json({
         success: true,
         message: 'Image URL saved successfully',
-        id: result.lastInsertRowid,
+        id: result[0].id,
         path: imageUrl
       })
     }
@@ -93,10 +85,11 @@ export async function POST(request: NextRequest) {
 
     // Check hero section limit and remove oldest if needed
     if (section === 'hero') {
-      const heroImages = db.prepare('SELECT * FROM images WHERE section = ? AND is_active = 1 ORDER BY uploaded_at ASC').all('hero')
+      const heroImages = await db.query('SELECT * FROM images WHERE section = $1 AND is_active = true ORDER BY uploaded_at ASC', [section])
       if (heroImages.length >= 4) {
-        const oldestImage = heroImages[0] as any
-        db.prepare('UPDATE images SET is_active = 0 WHERE id = ?').run(oldestImage.id)
+        const oldestImage = heroImages[0]
+        await db.query('UPDATE images SET is_active = false WHERE id = $1', [oldestImage.id])
+        await trackChange('images', oldestImage.id, 'UPDATE', oldestImage, { ...oldestImage, is_active: false })
       }
     }
 
@@ -116,12 +109,10 @@ export async function POST(request: NextRequest) {
     await writeFile(filePath, buffer)
 
     // Save to database
-    const stmt = db.prepare(`
+    const result = await db.query(`
       INSERT INTO images (filename, original_name, section, subsection, title, description, file_path, file_size, mime_type, is_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-
-    const result = stmt.run(
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
+    `, [
       filename,
       file.name,
       section,
@@ -131,27 +122,20 @@ export async function POST(request: NextRequest) {
       publicPath,
       file.size,
       file.type,
-      0
-    )
+      false
+    ])
+
+    await trackChange('images', result[0].id, 'INSERT', null, { filename, section, subsection, title, description })
 
     return NextResponse.json({
       success: true,
       message: 'Image uploaded successfully',
-      id: result.lastInsertRowid,
+      id: result[0].id,
       path: publicPath
     })
 
   } catch (error) {
     console.error('Upload error:', error)
-    
-    // Check if it's a database column error
-    if (error instanceof Error && error.message.includes('no such column: is_url')) {
-      return NextResponse.json(
-        { error: 'Database schema error. Please restart the server.' },
-        { status: 500 }
-      )
-    }
-    
     return NextResponse.json(
       { error: 'Failed to upload image' },
       { status: 500 }
@@ -164,23 +148,24 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const section = searchParams.get('section')
     const subsection = searchParams.get('subsection')
-
-    let query = 'SELECT * FROM images WHERE is_active = 1'
+    
+    let query = 'SELECT * FROM images WHERE is_active = true'
     const params: any[] = []
+    let paramIndex = 1
 
     if (section) {
-      query += ' AND section = ?'
+      query += ` AND section = $${paramIndex++}`
       params.push(section)
     }
 
     if (subsection) {
-      query += ' AND subsection = ?'
+      query += ` AND subsection = $${paramIndex++}`
       params.push(subsection)
     }
 
     query += ' ORDER BY uploaded_at DESC'
 
-    const images = db.prepare(query).all(...params)
+    const images = await db.query(query, params)
 
     return NextResponse.json({ images })
   } catch (error) {
@@ -197,16 +182,26 @@ export async function DELETE(request: NextRequest) {
     const { section, id } = await request.json()
     
     if (id) {
+      // Get old data for tracking
+      const oldData = await db.query('SELECT * FROM images WHERE id = $1', [id])
+      
       // Delete individual image by ID
-      const stmt = db.prepare('UPDATE images SET is_active = 0 WHERE id = ?')
-      stmt.run(id)
+      await db.query('UPDATE images SET is_active = false WHERE id = $1', [id])
+      
+      await trackChange('images', id, 'UPDATE', oldData[0], { ...oldData[0], is_active: false })
+      
       return NextResponse.json({ success: true, message: 'Image deleted successfully' })
     }
     
     if (section) {
       // Delete all images in section
-      const stmt = db.prepare('UPDATE images SET is_active = 0 WHERE section = ?')
-      stmt.run(section)
+      const oldData = await db.query('SELECT * FROM images WHERE section = $1', [section])
+      await db.query('UPDATE images SET is_active = false WHERE section = $1', [section])
+      
+      for (const image of oldData) {
+        await trackChange('images', image.id, 'UPDATE', image, { ...image, is_active: false })
+      }
+      
       return NextResponse.json({ success: true, message: 'Images deleted successfully' })
     }
     

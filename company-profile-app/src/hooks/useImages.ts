@@ -20,14 +20,17 @@ export function useImages(section: string, subsection?: string) {
     const fetchImages = async () => {
       try {
         setLoading(true)
+        
         const params = new URLSearchParams()
         params.append('section', section)
         if (subsection) params.append('subsection', subsection)
         
+        console.log('Fetching images with params:', { section, subsection })
         const response = await fetch(`/api/images?${params}`)
         if (!response.ok) throw new Error('Failed to fetch images')
         
         const data = await response.json()
+        console.log('Received images data:', data)
         setImages(data.images || [])
         setError(null)
       } catch (err) {
@@ -41,6 +44,20 @@ export function useImages(section: string, subsection?: string) {
 
     fetchImages()
   }, [section, subsection])
+
+  const refreshImages = async () => {
+    const params = new URLSearchParams()
+    params.append('section', section)
+    if (subsection) params.append('subsection', subsection)
+    
+    try {
+      const response = await fetch(`/api/images?${params}`)
+      const data = await response.json()
+      setImages(data.images || [])
+    } catch (err) {
+      console.error('Error refreshing images:', err)
+    }
+  }
 
   const getFallbackImages = () => {
     return [
@@ -63,6 +80,7 @@ export function useImages(section: string, subsection?: string) {
     loading,
     error,
     imageUrls: getImageUrls(),
-    hasUploadedImages: images.length > 0
+    hasUploadedImages: images.length > 0,
+    refreshImages
   }
 }

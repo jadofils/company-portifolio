@@ -16,6 +16,7 @@ interface UseContentReturn {
   content: ContentItem[]
   getContentBySection: (section: string, subsection?: string) => ContentItem[]
   loading: boolean
+  refreshContent: () => Promise<void>
 }
 
 const defaultContent = {
@@ -104,6 +105,10 @@ export function useContent(): UseContentReturn {
     }
   }
 
+  const refreshContent = async () => {
+    await fetchContent()
+  }
+
   const getContentBySection = (section: string, subsection?: string): ContentItem[] => {
     let filtered = content.filter(item => item.section === section)
     
@@ -125,6 +130,7 @@ export function useContent(): UseContentReturn {
   return {
     content,
     getContentBySection,
-    loading
+    loading,
+    refreshContent
   }
 }

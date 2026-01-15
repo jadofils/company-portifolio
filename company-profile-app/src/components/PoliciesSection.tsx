@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowRight, Shield } from 'lucide-react'
 import { useImages } from '@/hooks/useImages'
+import { useContent } from '@/hooks/useContent'
 
 type PolicySectionKey =
   | 'environmental-policy'
@@ -11,10 +12,13 @@ type PolicySectionKey =
   | 'compliance'
 
 const PoliciesSection = () => {
-  const [activeSection, setActiveSection] = useState<PolicySectionKey>('environmental-policy')
-  const { imageUrls } = useImages('policies')
+  const [activeSection, setActiveSection] = useState('policies')
+  const { images: policiesImages, refreshImages: refreshPoliciesImages } = useImages('policies')
+  const { images: subsectionImages, refreshImages: refreshSubsectionImages } = useImages('policies', activeSection === 'policies' ? undefined : activeSection)
+  const { getContentBySection } = useContent()
+  const policiesContent = getContentBySection('policies')
 
-  const policySections: { id: PolicySectionKey; title: string }[] = [
+  const staticSections = [
     { id: 'environmental-policy', title: 'Environmental Policy' },
     { id: 'safety-standards', title: 'Safety Standards' },
     { id: 'quality-assurance', title: 'Quality Assurance' },
@@ -76,14 +80,103 @@ const PoliciesSection = () => {
     }
   }
 
+  // Combine static sections with dynamic content - show main policies first, then subsections
+  const allSections = [
+    { id: 'policies', title: 'Policies' },
+    ...staticSections,
+    ...policiesContent.filter(item => !staticSections.some(s => s.title === item.title)).map(item => ({
+      id: item.subsection || item.title.toLowerCase().replace(/\s+/g, '-'),
+      title: item.title
+    }))
+  ]
+
+  const getCurrentContent = (sectionId: string) => {
+    // If main policies section, return general policies info
+    if (sectionId === 'policies') {
+      return {
+        title: 'Policies',
+        content: 'Our comprehensive policies ensure responsible mining practices, environmental protection, and regulatory compliance.',
+        keyPoints: [
+          'Environmental sustainability',
+          'Safety and health standards',
+          'Quality assurance processes',
+          'Regulatory compliance',
+          'Ethical business practices'
+        ]
+      }
+    }
+    
+    // First check if it's dynamic content
+    const dynamicContent = policiesContent.find(item => 
+      (item.subsection === sectionId) || 
+      (item.title.toLowerCase().replace(/\s+/g, '-') === sectionId)
+    )
+    if (dynamicContent) return {
+      title: dynamicContent.title,
+      content: dynamicContent.content,
+      keyPoints: ['Database content', 'Custom policy information']
+    }
+    
+    // Otherwise use static content
+    return sectionContent[sectionId as PolicySectionKey] || null
+  }
+
+  const currentContent = getCurrentContent(activeSection)
+  
+  // Get the appropriate image for current section/subsection
+  const getCurrentImage = () => {
+    console.log('PoliciesSection getCurrentImage called with activeSection:', activeSection)
+    console.log('policiesImages:', policiesImages)
+    console.log('subsectionImages:', subsectionImages)
+    
+    // If main policies section, use general policies images (where subsection is null)
+    if (activeSection === 'policies') {
+      const mainPoliciesImages = policiesImages.filter(img => img.subsection === null || img.subsection === '')
+      console.log('mainPoliciesImages:', mainPoliciesImages)
+      if (mainPoliciesImages && mainPoliciesImages.length > 0) {
+        return mainPoliciesImages[0].file_path
+      }
+      // Fallback to static image for main policies section
+      return 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&h=600&fit=crop'
+    }
+    
+    // For subsections, try subsection-specific images first
+    console.log('Looking for subsection images for:', activeSection)
+    if (subsectionImages && subsectionImages.length > 0) {
+      console.log('Found subsection images:', subsectionImages)
+      return subsectionImages[0].file_path
+    }
+    
+    // Static fallback images for each subsection
+    const staticImages = {
+      'environmental-policy': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&h=600&fit=crop',
+      'safety-standards': 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=600&fit=crop',
+      'quality-assurance': 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&h=600&fit=crop',
+      'compliance': 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&h=600&fit=crop'
+    }
+    
+    if (staticImages[activeSection as keyof typeof staticImages]) {
+      console.log('Using static fallback image for:', activeSection)
+      return staticImages[activeSection as keyof typeof staticImages]
+    }
+    
+    // Finally try general policies section images as fallback
+    const mainPoliciesImages = policiesImages.filter(img => img.subsection === null || img.subsection === '')
+    if (mainPoliciesImages && mainPoliciesImages.length > 0) {
+      console.log('Using fallback main policies image:', mainPoliciesImages[0].file_path)
+      return mainPoliciesImages[0].file_path
+    }
+    
+    // Final fallback to static policies image
+    console.log('Using final static fallback')
+    return 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&h=600&fit=crop'
+  }
+
   // Listen for subsection change events from navbar
   useEffect(() => {
     const handleSubsectionChange = (event: CustomEvent) => {
       if (event.detail.section === 'policies') {
-        const subsectionKey = event.detail.subsection as PolicySectionKey
-        if (Object.keys(sectionContent).includes(subsectionKey)) {
-          setActiveSection(subsectionKey)
-        }
+        setActiveSection(event.detail.subsection)
       }
     }
     
@@ -91,18 +184,29 @@ const PoliciesSection = () => {
     return () => window.removeEventListener('changeSubsection', handleSubsectionChange as EventListener)
   }, [])
 
+  // Refresh images when activeSection changes
+  useEffect(() => {
+    if (activeSection === 'policies') {
+      refreshPoliciesImages()
+    } else {
+      refreshSubsectionImages()
+    }
+  }, [activeSection])
+
+  const currentImage = getCurrentImage()
+
   return (
     <section id="policies" className="bg-white">
       {/* Hero Image */}
       <div className="w-full h-[85vh] bg-gray-100 relative flex items-center justify-center" style={{
-        backgroundImage: imageUrls[0] ? `url("${imageUrls[0]}")` : 'none',
+        backgroundImage: currentImage ? `url("${currentImage}")` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       }}>
-        {!imageUrls[0] && <Shield className="h-24 w-24 text-gray-400" />}
+        {!currentImage && <Shield className="h-24 w-24 text-gray-400" />}
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="w-full h-full bg-black/30 flex items-center justify-center relative z-10">
-          <h2 className="text-4xl font-bold text-white">Policies</h2>
+          <h2 className="text-4xl font-bold text-white">{currentContent?.title || 'Policies'}</h2>
         </div>
       </div>
       
@@ -114,7 +218,7 @@ const PoliciesSection = () => {
               <div className="bg-gray-50 border border-gray-200 rounded p-4">
                 <h3 className="font-bold text-gray-900 mb-4">Policy Areas</h3>
                 <ul className="space-y-2">
-                  {policySections.map((section) => (
+                  {allSections.map((section) => (
                     <li key={section.id}>
                       <button
                         onClick={() => setActiveSection(section.id)}
@@ -136,15 +240,15 @@ const PoliciesSection = () => {
             <div className="lg:col-span-3">
               <div className="prose prose-lg max-w-none">
                 <h3 className="text-2xl font-bold text-gray-900 mb-6">
-                  {sectionContent[activeSection].title}
+                  {currentContent?.title}
                 </h3>
                 <div className="text-gray-600 leading-relaxed whitespace-pre-line mb-6">
-                  {sectionContent[activeSection].content}
+                  {currentContent?.content}
                 </div>
                 <div className="bg-gray-50 border border-gray-200 rounded p-4">
                   <h4 className="font-bold text-gray-900 mb-3">Key Points:</h4>
                   <ul className="space-y-2">
-                    {sectionContent[activeSection].keyPoints.map((point, index) => (
+                    {currentContent?.keyPoints?.map((point, index) => (
                       <li key={index} className="flex items-start">
                         <span className="w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3 flex-shrink-0"></span>
                         <span className="text-gray-600">{point}</span>

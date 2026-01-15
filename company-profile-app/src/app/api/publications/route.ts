@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
-import { db, initDatabase } from '@/lib/database-vercel'
-import { getCurrentUser } from '@/lib/auth'
+import { db, initDatabase, trackChange } from '@/lib/database-vercel'
+import { cache, cacheKeys } from '@/lib/cache'
 
 initDatabase()
 
 export async function POST(request: NextRequest) {
   try {
-    const currentUser = getCurrentUser(request)
     const contentType = request.headers.get('content-type')
     
     // Handle form submission (text content)
@@ -22,10 +21,13 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      await db.query(
-        'INSERT INTO publications (title, description, content, published_date) VALUES (?, ?, ?, ?)',
+      const result = await db.query(
+        'INSERT INTO publications (title, description, content, published_date) VALUES ($1, $2, $3, $4) RETURNING id',
         [title, description || null, content || null, published_date || new Date().toISOString().split('T')[0]]
       )
+
+      await trackChange('publications', result[0].id, 'INSERT', null, { title, description, content, published_date })
+      cache.delete(cacheKeys.publications())
 
       return NextResponse.json({
         success: true,
@@ -63,10 +65,13 @@ export async function POST(request: NextRequest) {
     await writeFile(filePath, buffer)
 
     // Save to database
-    await db.query(
-      'INSERT INTO publications (title, description, pdf_path, published_date) VALUES (?, ?, ?, ?)',
+    const result = await db.query(
+      'INSERT INTO publications (title, description, pdf_path, published_date) VALUES ($1, $2, $3, $4) RETURNING id',
       [title, description || null, publicPath, published_date || new Date().toISOString().split('T')[0]]
     )
+
+    await trackChange('publications', result[0].id, 'INSERT', null, { title, description, pdf_path: publicPath, published_date })
+    cache.delete(cacheKeys.publications())
 
     return NextResponse.json({
       success: true,
@@ -85,8 +90,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const cacheKey = cacheKeys.publications()
     const publications = await db.query(
-      'SELECT * FROM publications WHERE is_active = 1 ORDER BY published_date DESC, created_at DESC'
+      'SELECT * FROM publications WHERE is_active = true ORDER BY published_date DESC, created_at DESC',
+      [],
+      cacheKey
     )
 
     return NextResponse.json({ publications })
@@ -107,7 +115,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
-    await db.query('UPDATE publications SET is_active = 0 WHERE id = ?', [id])
+    // Get old data for tracking
+    const oldData = await db.query('SELECT * FROM publications WHERE id = $1', [id])
+
+    await db.query('UPDATE publications SET is_active = false WHERE id = $1', [id])
+    
+    await trackChange('publications', id, 'UPDATE', oldData[0], { ...oldData[0], is_active: false })
+    cache.delete(cacheKeys.publications())
     
     return NextResponse.json({ success: true, message: 'Publication deleted successfully' })
   } catch (error) {

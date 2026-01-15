@@ -120,6 +120,7 @@ export default function AdminDashboard() {
   const [logoUploadMode, setLogoUploadMode] = useState<'url' | 'upload'>('url')
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [errors, setErrors] = useState<{[key: string]: string}>({})
+  const [savingSettings, setSavingSettings] = useState(false)
 
   const sidebarItems = [
     { id: 'images', label: 'Images', icon: ImageIcon },
@@ -329,6 +330,7 @@ export default function AdminDashboard() {
       return
     }
     
+    setSavingSettings(true)
     try {
       console.log('Sending PUT request to /api/settings')
       const response = await fetch('/api/settings', {
@@ -342,14 +344,17 @@ export default function AdminDashboard() {
       console.log('Response result:', result)
       
       if (result.success) {
-        alert('Settings updated successfully!')
-        fetchSettings() // Refresh settings instead of page reload
+        alert('Settings updated successfully! The system will refresh to apply changes.')
+        // Force refresh to apply all changes across the system
+        window.location.reload()
       } else {
         alert('Update failed: ' + result.error)
       }
     } catch (error) {
       console.error('Settings update error:', error)
       alert('Update failed: Network error')
+    } finally {
+      setSavingSettings(false)
     }
   }
 
@@ -409,10 +414,12 @@ export default function AdminDashboard() {
 
       const result = await response.json()
       if (result.success) {
-        alert('Password updated successfully!')
-        // Clear password form
+        alert('Password updated successfully! Please log in again.')
+        // Clear password form and redirect to login
         setNewPassword('')
         setConfirmPassword('')
+        await fetch('/api/logout', { method: 'POST' })
+        window.location.href = '/login'
       } else {
         alert('Password update failed: ' + result.error)
       }
@@ -1530,10 +1537,11 @@ export default function AdminDashboard() {
                     <div className="mt-6">
                       <button 
                         onClick={handleSettingsUpdate}
-                        className="btn-primary flex items-center"
+                        disabled={savingSettings}
+                        className="btn-primary flex items-center disabled:opacity-50"
                       >
-                        <Save className="h-4 w-4 mr-2" />
-                        Save Company Settings
+                        <Save className={`h-4 w-4 mr-2 ${savingSettings ? 'animate-spin' : ''}`} />
+                        {savingSettings ? 'Saving...' : 'Save Company Settings'}
                       </button>
                     </div>
                   </div>
@@ -1605,10 +1613,11 @@ export default function AdminDashboard() {
                             handleSettingsUpdate()
                           }
                         }}
-                        className="btn-primary flex items-center"
+                        disabled={savingSettings}
+                        className="btn-primary flex items-center disabled:opacity-50"
                       >
-                        <Save className="h-4 w-4 mr-2" />
-                        Save Social Media Settings
+                        <Save className={`h-4 w-4 mr-2 ${savingSettings ? 'animate-spin' : ''}`} />
+                        {savingSettings ? 'Saving...' : 'Save Social Media Settings'}
                       </button>
                     </div>
                   </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Search, FlaskConical, Hammer, Tag, Package, Truck, Ship, ArrowRight, Cog } from 'lucide-react'
 import { useImages } from '@/hooks/useImages'
+import { useContent } from '@/hooks/useContent'
 
 type ServiceSectionKey =
   | 'sourcing'
@@ -14,8 +15,11 @@ type ServiceSectionKey =
   | 'shipping'
 
 const ServicesSection = () => {
-  const [activeSection, setActiveSection] = useState<ServiceSectionKey>('sourcing')
-  const { imageUrls } = useImages('services')
+  const [activeSection, setActiveSection] = useState('services')
+  const { images: servicesImages, refreshImages: refreshServicesImages } = useImages('services')
+  const { images: subsectionImages, refreshImages: refreshSubsectionImages } = useImages('services', activeSection === 'services' ? undefined : activeSection)
+  const { getContentBySection } = useContent()
+  const servicesContent = getContentBySection('services')
 
   const serviceSections: { id: ServiceSectionKey; title: string }[] = [
     { id: 'sourcing', title: 'Sourcing' },
@@ -27,7 +31,7 @@ const ServicesSection = () => {
     { id: 'shipping', title: 'Shipping' }
   ]
 
-  const sectionContent: Record<ServiceSectionKey, { title: string; content: string; icon: JSX.Element }> = {
+  const staticContent: Record<ServiceSectionKey, { title: string; content: string; icon: JSX.Element }> = {
     'sourcing': {
       title: 'Sourcing',
       content: `Our sourcing operations are built on close and persistent contact with artisanal miners and mining companies across the region. We focus on establishing reliable supply chains for raw minerals while ensuring ethical sourcing practices.
@@ -79,14 +83,108 @@ const ServicesSection = () => {
     }
   }
 
+  // Combine static sections with dynamic content - show main services first, then subsections
+  const allSections = [
+    { id: 'services', title: 'Services' },
+    ...serviceSections,
+    ...servicesContent.filter(item => !serviceSections.some(s => s.title === item.title)).map(item => ({
+      id: item.subsection || item.title.toLowerCase().replace(/\s+/g, '-'),
+      title: item.title
+    }))
+  ]
+
+  const getCurrentContent = (sectionId: string) => {
+    // If main services section, return general services info
+    if (sectionId === 'services') {
+      return {
+        title: 'Services',
+        content: 'Our comprehensive mineral processing services cover the entire value chain from sourcing to shipping.',
+        image_url: null,
+        icon: <Cog className="h-8 w-8" />
+      }
+    }
+    
+    // First check if it's dynamic content
+    const dynamicContent = servicesContent.find(item => 
+      (item.subsection === sectionId) || 
+      (item.title.toLowerCase().replace(/\s+/g, '-') === sectionId)
+    )
+    if (dynamicContent) return {
+      title: dynamicContent.title,
+      content: dynamicContent.content,
+      image_url: dynamicContent.image_url,
+      icon: <Cog className="h-8 w-8" />
+    }
+    
+    // Otherwise use static content
+    return staticContent[sectionId as ServiceSectionKey] || null
+  }
+
+  const currentContent = getCurrentContent(activeSection)
+  
+  // Get the appropriate image for current section/subsection
+  const getCurrentImage = () => {
+    console.log('ServicesSection getCurrentImage called with activeSection:', activeSection)
+    console.log('servicesImages:', servicesImages)
+    console.log('subsectionImages:', subsectionImages)
+    
+    // If main services section, use general services images (where subsection is null)
+    if (activeSection === 'services') {
+      const mainServicesImages = servicesImages.filter(img => img.subsection === null || img.subsection === '')
+      console.log('mainServicesImages:', mainServicesImages)
+      if (mainServicesImages && mainServicesImages.length > 0) {
+        return mainServicesImages[0].file_path
+      }
+      // Fallback to static image for main services section
+      return 'https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=800&h=600&fit=crop'
+    }
+    
+    // For subsections, try subsection-specific images first
+    console.log('Looking for subsection images for:', activeSection)
+    if (subsectionImages && subsectionImages.length > 0) {
+      console.log('Found subsection images:', subsectionImages)
+      return subsectionImages[0].file_path
+    }
+    
+    // Then try content image_url from database content
+    if (currentContent?.image_url) {
+      console.log('Using content image_url:', currentContent.image_url)
+      return currentContent.image_url
+    }
+    
+    // Static fallback images for each subsection
+    const staticImages = {
+      'sourcing': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&fit=crop',
+      'testing-analysis': 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&h=600&fit=crop',
+      'crushing': 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=600&fit=crop',
+      'tagging': 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800&h=600&fit=crop',
+      'packing': 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&h=600&fit=crop',
+      'loading': 'https://images.unsplash.com/photo-1494412651409-8963ce7935a7?w=800&h=600&fit=crop',
+      'shipping': 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800&h=600&fit=crop'
+    }
+    
+    if (staticImages[activeSection as keyof typeof staticImages]) {
+      console.log('Using static fallback image for:', activeSection)
+      return staticImages[activeSection as keyof typeof staticImages]
+    }
+    
+    // Finally try general services section images as fallback
+    const mainServicesImages = servicesImages.filter(img => img.subsection === null || img.subsection === '')
+    if (mainServicesImages && mainServicesImages.length > 0) {
+      console.log('Using fallback main services image:', mainServicesImages[0].file_path)
+      return mainServicesImages[0].file_path
+    }
+    
+    // Final fallback to static services image
+    console.log('Using final static fallback')
+    return 'https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=800&h=600&fit=crop'
+  }
+
   // Listen for subsection change events from navbar
   useEffect(() => {
     const handleSubsectionChange = (event: CustomEvent) => {
       if (event.detail.section === 'services') {
-        const subsectionKey = event.detail.subsection.replace(/-/g, '-') as ServiceSectionKey
-        if (Object.keys(sectionContent).includes(subsectionKey)) {
-          setActiveSection(subsectionKey)
-        }
+        setActiveSection(event.detail.subsection)
       }
     }
     
@@ -94,18 +192,29 @@ const ServicesSection = () => {
     return () => window.removeEventListener('changeSubsection', handleSubsectionChange as EventListener)
   }, [])
 
+  // Refresh images when activeSection changes
+  useEffect(() => {
+    if (activeSection === 'services') {
+      refreshServicesImages()
+    } else {
+      refreshSubsectionImages()
+    }
+  }, [activeSection])
+
+  const currentImage = getCurrentImage()
+
   return (
     <section id="services" className="bg-white">
       {/* Hero Image */}
       <div className="w-full h-[85vh] bg-gray-100 relative flex items-center justify-center" style={{
-        backgroundImage: imageUrls[0] ? `url("${imageUrls[0]}")` : 'none',
+        backgroundImage: currentImage ? `url("${currentImage}")` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       }}>
-        {!imageUrls[0] && <Cog className="h-24 w-24 text-gray-400" />}
+        {!currentImage && <Cog className="h-24 w-24 text-gray-400" />}
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="w-full h-full bg-black/30 flex items-center justify-center relative z-10">
-          <h2 className="text-4xl font-bold text-white">Services</h2>
+          <h2 className="text-4xl font-bold text-white">{currentContent?.title || 'Services'}</h2>
         </div>
       </div>
       
@@ -117,7 +226,7 @@ const ServicesSection = () => {
               <div className="bg-gray-50 border border-gray-200 rounded p-4">
                 <h3 className="font-bold text-gray-900 mb-4">Service Workflow</h3>
                 <ul className="space-y-2">
-                  {serviceSections.map((section) => (
+                  {allSections.map((section) => (
                     <li key={section.id}>
                       <button
                         onClick={() => setActiveSection(section.id)}
@@ -140,15 +249,25 @@ const ServicesSection = () => {
               <div className="prose prose-lg max-w-none">
                 <div className="flex items-center mb-6">
                   <div className="mr-4 text-blue-600">
-                    {sectionContent[activeSection].icon}
+                    {currentContent?.icon}
                   </div>
                   <h3 className="text-2xl font-bold text-gray-900">
-                    {sectionContent[activeSection].title}
+                    {currentContent?.title}
                   </h3>
                 </div>
                 <div className="text-gray-600 leading-relaxed whitespace-pre-line">
-                  {sectionContent[activeSection].content}
+                  {currentContent?.content}
                 </div>
+                {/* Show additional subsection image if different from hero */}
+                {currentContent?.image_url && currentContent.image_url !== currentImage && (
+                  <div className="mt-6">
+                    <img 
+                      src={currentContent.image_url} 
+                      alt={currentContent.title}
+                      className="w-full h-[60vh] object-cover rounded"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>

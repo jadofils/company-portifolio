@@ -5,7 +5,6 @@ import { Menu, X, ChevronDown, Building2, Users, History, Target, Leaf, Search, 
 import { useRouter, usePathname } from 'next/navigation'
 import { useSettings } from '@/hooks/useSettings'
 import { useContent } from '@/hooks/useContent'
-import { useImages } from '@/hooks/useImages'
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -13,12 +12,6 @@ const Navbar = () => {
   const pathname = usePathname()
   const { settings } = useSettings()
   const { getContentBySection } = useContent()
-  
-  // Get images for each section
-  const { imageUrls: aboutImages } = useImages('about')
-  const { imageUrls: servicesImages } = useImages('services')
-  const { imageUrls: productsImages } = useImages('products')
-  const { imageUrls: policiesImages } = useImages('policies')
 
   // Get dynamic subsections from database
   const aboutContent = getContentBySection('about')
@@ -57,10 +50,13 @@ const Navbar = () => {
 
   // Combine static and dynamic content - show all static items plus any new dynamic ones
   const aboutItems = [
-    ...staticAbout.map((item, index) => ({
-      ...item,
-      image_url: aboutImages[index] || null
-    })),
+    ...staticAbout.map((item, index) => {
+      const subsectionKey = item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      return {
+        ...item,
+        image_url: aboutContent.find(c => c.title === item.title)?.image_url || null
+      }
+    }),
     ...aboutContent.filter(item => !staticAbout.some(s => s.title === item.title)).map(item => ({
       title: item.title,
       icon: Building2,
@@ -68,10 +64,13 @@ const Navbar = () => {
     }))
   ]
   const services = [
-    ...staticServices.map((item, index) => ({
-      ...item,
-      image_url: servicesImages[index] || null
-    })),
+    ...staticServices.map((item, index) => {
+      const subsectionKey = item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      return {
+        ...item,
+        image_url: servicesContent.find(c => c.title === item.title)?.image_url || null
+      }
+    }),
     ...servicesContent.filter(item => !staticServices.some(s => s.title === item.title)).map(item => ({
       title: item.title,
       icon: Building2,
@@ -79,10 +78,13 @@ const Navbar = () => {
     }))
   ]
   const products = [
-    ...staticProducts.map((item, index) => ({
-      ...item,
-      image_url: productsImages[index] || null
-    })),
+    ...staticProducts.map((item, index) => {
+      const subsectionKey = item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      return {
+        ...item,
+        image_url: productsContent.find(c => c.title === item.title)?.image_url || null
+      }
+    }),
     ...productsContent.filter(item => !staticProducts.some(s => s.title === item.title)).map(item => ({
       title: item.title,
       icon: Gem,
@@ -90,10 +92,13 @@ const Navbar = () => {
     }))
   ]
   const policies = [
-    ...staticPolicies.map((item, index) => ({
-      ...item,
-      image_url: policiesImages[index] || null
-    })),
+    ...staticPolicies.map((item, index) => {
+      const subsectionKey = item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      return {
+        ...item,
+        image_url: policiesContent.find(c => c.title === item.title)?.image_url || null
+      }
+    }),
     ...policiesContent.filter(item => !staticPolicies.some(s => s.title === item.title)).map(item => ({
       title: item.title,
       icon: Shield,

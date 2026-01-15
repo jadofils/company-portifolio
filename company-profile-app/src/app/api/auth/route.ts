@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user in database
-    const users = await db.query('SELECT * FROM users WHERE email = ?', [email])
+    const users = await db.query('SELECT * FROM users WHERE email = $1', [email])
     const user = users[0]
     console.log('User found:', user ? 'Yes' : 'No', 'Email:', email)
 

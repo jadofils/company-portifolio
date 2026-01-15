@@ -1,4 +1,7 @@
+'use client'
+
 import { useState, useEffect } from 'react'
+import { cache, cacheKeys } from '@/lib/cache'
 
 interface CompanySettings {
   company_name: string
@@ -14,71 +17,67 @@ interface CompanySettings {
   youtube_url: string
 }
 
-const defaultSettings: CompanySettings = {
-  company_name: 'MineralsCorp',
-  company_logo: '/logo.png',
-  company_address: '123 Mining District\nKigali, Rwanda',
-  company_phone: '+250 788 123 456',
-  company_email: 'info@mineralscorp.com',
-  footer_description: 'Leading mineral processing company specializing in sustainable mining practices and high-quality mineral extraction.',
-  facebook_url: '#',
-  twitter_url: '#',
-  linkedin_url: '#',
-  instagram_url: '#',
-  youtube_url: '#'
-}
-
 export function useSettings() {
-  const [settings, setSettings] = useState<CompanySettings>(defaultSettings)
+  const [settings, setSettings] = useState<CompanySettings>({
+    company_name: '',
+    company_logo: '',
+    company_address: '',
+    company_phone: '',
+    company_email: '',
+    footer_description: '',
+    facebook_url: '',
+    twitter_url: '',
+    linkedin_url: '',
+    instagram_url: '',
+    youtube_url: ''
+  })
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   const fetchSettings = async () => {
     try {
-      setLoading(true)
+      // Check cache first
+      const cacheKey = cacheKeys.settings()
+      const cached = cache.get(cacheKey)
+      if (cached) {
+        setSettings(cached)
+        setLoading(false)
+        return
+      }
+
       const response = await fetch('/api/settings')
-      if (!response.ok) throw new Error('Failed to fetch settings')
-      
       const data = await response.json()
-      setSettings({ ...defaultSettings, ...data.settings })
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch settings')
-      setSettings(defaultSettings)
+      
+      if (data.settings) {
+        setSettings(data.settings)
+        cache.set(cacheKey, data.settings)
+      }
+    } catch (error) {
+      console.error('Failed to fetch settings:', error)
     } finally {
       setLoading(false)
     }
   }
 
+  const refreshSettings = async () => {
+    cache.delete(cacheKeys.settings())
+    await fetchSettings()
+  }
+
   useEffect(() => {
     fetchSettings()
-  }, [])
 
-  const updateSettings = async (newSettings: Partial<CompanySettings>) => {
-    try {
-      const response = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSettings)
-      })
-
-      if (!response.ok) throw new Error('Failed to update settings')
-      
-      setSettings(prev => ({ ...prev, ...newSettings }))
-      return { success: true }
-    } catch (err) {
-      return { 
-        success: false, 
-        error: err instanceof Error ? err.message : 'Failed to update settings' 
-      }
+    // Listen for settings update events
+    const handleSettingsUpdate = () => {
+      refreshSettings()
     }
-  }
+
+    window.addEventListener('settingsUpdated', handleSettingsUpdate)
+    return () => window.removeEventListener('settingsUpdated', handleSettingsUpdate)
+  }, [])
 
   return {
     settings,
     loading,
-    error,
-    updateSettings,
-    refetch: fetchSettings
+    refreshSettings
   }
 }

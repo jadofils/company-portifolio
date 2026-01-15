@@ -10,9 +10,7 @@ export async function GET() {
   try {
     const cacheKey = cacheKeys.content()
     const content = await db.query(
-      'SELECT * FROM company_content ORDER BY section, subsection, updated_at DESC',
-      [],
-      cacheKey
+      'SELECT * FROM company_content ORDER BY section, subsection, updated_at DESC'
     )
 
     return NextResponse.json({ success: true, content })

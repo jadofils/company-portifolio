@@ -92,9 +92,7 @@ export async function GET(request: NextRequest) {
   try {
     const cacheKey = cacheKeys.publications()
     const publications = await db.query(
-      'SELECT * FROM publications WHERE is_active = true ORDER BY published_date DESC, created_at DESC',
-      [],
-      cacheKey
+      'SELECT * FROM publications WHERE is_active = true ORDER BY published_date DESC, created_at DESC'
     )
 
     return NextResponse.json({ publications })

@@ -147,7 +147,7 @@ const ServicesSection = () => {
     }
     
     // Then try content image_url from database content
-    if (currentContent?.image_url) {
+    if ('image_url' in currentContent && currentContent?.image_url) {
       console.log('Using content image_url:', currentContent.image_url)
       return currentContent.image_url
     }
@@ -259,7 +259,7 @@ const ServicesSection = () => {
                   {currentContent?.content}
                 </div>
                 {/* Show additional subsection image if different from hero */}
-                {currentContent?.image_url && currentContent.image_url !== currentImage && (
+                {'image_url' in currentContent && currentContent?.image_url && currentContent.image_url !== currentImage && (
                   <div className="mt-6">
                     <img 
                       src={currentContent.image_url} 

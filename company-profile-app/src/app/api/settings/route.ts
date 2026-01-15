@@ -7,7 +7,7 @@ initDatabase()
 export async function GET() {
   try {
     const cacheKey = cacheKeys.settings()
-    const settings = await db.query('SELECT * FROM settings', [], cacheKey)
+    const settings = await db.query('SELECT * FROM settings')
     const settingsObj = settings.reduce((acc: any, setting: any) => {
       acc[setting.key] = setting.value
       return acc

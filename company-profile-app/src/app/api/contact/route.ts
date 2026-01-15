@@ -51,9 +51,7 @@ export async function GET() {
   try {
     const cacheKey = cacheKeys.contactMessages()
     const messages = await db.query(
-      'SELECT * FROM contact_messages ORDER BY created_at DESC',
-      [],
-      cacheKey
+      'SELECT * FROM contact_messages ORDER BY created_at DESC'
     )
 
     return NextResponse.json({ messages })

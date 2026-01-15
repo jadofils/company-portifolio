@@ -1,12 +1,4 @@
 import './globals.css'
-import { Inter, Roboto } from 'next/font/google'
-
-const inter = Inter({ subsets: ['latin'] })
-const roboto = Roboto({ 
-  weight: ['300', '400', '500', '700'],
-  subsets: ['latin'],
-  variable: '--font-roboto'
-})
 
 export const metadata = {
   title: 'MineralsCorp - Leading Sustainable Mining Solutions',
@@ -21,7 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} ${roboto.variable}`}>{children}</body>
+      <body className="font-sans">{children}</body>
     </html>
   )
 }

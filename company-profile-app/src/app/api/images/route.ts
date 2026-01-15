@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
-import { db, initDatabase, trackChange } from '@/lib/database-vercel'
-import { cache, cacheKeys } from '@/lib/cache'
-
-initDatabase()
+import { sql } from '@/lib/database-vercel'
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,39 +28,24 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Check hero section limit and remove oldest if needed
+      // Check hero section limit
       if (section === 'hero') {
-        const heroImages = await db.query('SELECT * FROM images WHERE section = $1 AND is_active = true ORDER BY uploaded_at ASC', [section])
+        const { rows: heroImages } = await sql`SELECT * FROM images WHERE section = 'hero' AND is_active = true ORDER BY uploaded_at ASC`
         if (heroImages.length >= 4) {
           const oldestImage = heroImages[0]
-          await db.query('UPDATE images SET is_active = false WHERE id = $1', [oldestImage.id])
-          await trackChange('images', oldestImage.id, 'UPDATE', oldestImage, { ...oldestImage, is_active: false })
+          await sql`UPDATE images SET is_active = false WHERE id = ${oldestImage.id}`
         }
       }
 
       // Save URL to database
-      const result = await db.query(`
+      await sql`
         INSERT INTO images (filename, original_name, section, subsection, title, description, file_path, file_size, mime_type, is_url)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
-      `, [
-        'url-image',
-        title || 'URL Image',
-        section,
-        subsection || null,
-        title || null,
-        description || null,
-        imageUrl,
-        0,
-        'image/url',
-        true
-      ])
-
-      await trackChange('images', result[0].id, 'INSERT', null, { imageUrl, section, subsection, title, description })
+        VALUES ('url-image', ${title || 'URL Image'}, ${section}, ${subsection || null}, ${title || null}, ${description || null}, ${imageUrl}, 0, 'image/url', true)
+      `
 
       return NextResponse.json({
         success: true,
         message: 'Image URL saved successfully',
-        id: result[0].id,
         path: imageUrl
       })
     }
@@ -85,11 +67,10 @@ export async function POST(request: NextRequest) {
 
     // Check hero section limit and remove oldest if needed
     if (section === 'hero') {
-      const heroImages = await db.query('SELECT * FROM images WHERE section = $1 AND is_active = true ORDER BY uploaded_at ASC', [section])
+      const { rows: heroImages } = await sql`SELECT * FROM images WHERE section = ${section} AND is_active = true ORDER BY uploaded_at ASC`
       if (heroImages.length >= 4) {
         const oldestImage = heroImages[0]
-        await db.query('UPDATE images SET is_active = false WHERE id = $1', [oldestImage.id])
-        await trackChange('images', oldestImage.id, 'UPDATE', oldestImage, { ...oldestImage, is_active: false })
+        await sql`UPDATE images SET is_active = false WHERE id = ${oldestImage.id}`
       }
     }
 
@@ -109,28 +90,14 @@ export async function POST(request: NextRequest) {
     await writeFile(filePath, buffer)
 
     // Save to database
-    const result = await db.query(`
+    await sql`
       INSERT INTO images (filename, original_name, section, subsection, title, description, file_path, file_size, mime_type, is_url)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
-    `, [
-      filename,
-      file.name,
-      section,
-      subsection || null,
-      title || null,
-      description || null,
-      publicPath,
-      file.size,
-      file.type,
-      false
-    ])
-
-    await trackChange('images', result[0].id, 'INSERT', null, { filename, section, subsection, title, description })
+      VALUES (${filename}, ${file.name}, ${section}, ${subsection || null}, ${title || null}, ${description || null}, ${publicPath}, ${file.size}, ${file.type}, false)
+    `
 
     return NextResponse.json({
       success: true,
       message: 'Image uploaded successfully',
-      id: result[0].id,
       path: publicPath
     })
 
@@ -149,31 +116,39 @@ export async function GET(request: NextRequest) {
     const section = searchParams.get('section')
     const subsection = searchParams.get('subsection')
     
-    let query = 'SELECT * FROM images WHERE is_active = true'
-    const params: any[] = []
-    let paramIndex = 1
-
-    if (section) {
-      query += ` AND section = $${paramIndex++}`
-      params.push(section)
+    let images
+    let retries = 3
+    
+    while (retries > 0) {
+      try {
+        if (section && subsection) {
+          const { rows } = await sql`SELECT * FROM images WHERE is_active = true AND section = ${section} AND subsection = ${subsection} ORDER BY uploaded_at DESC`
+          images = rows
+        } else if (section) {
+          const { rows } = await sql`SELECT * FROM images WHERE is_active = true AND section = ${section} ORDER BY uploaded_at DESC`
+          images = rows
+        } else {
+          const { rows } = await sql`SELECT * FROM images WHERE is_active = true ORDER BY uploaded_at DESC`
+          images = rows
+        }
+        break // Success, exit retry loop
+      } catch (dbError) {
+        retries--
+        console.error(`Database error (${3 - retries}/3):`, dbError)
+        if (retries === 0) {
+          // Return empty array instead of error to prevent infinite loops
+          console.log('All retries failed, returning empty images array')
+          return NextResponse.json({ images: [] })
+        }
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
     }
 
-    if (subsection) {
-      query += ` AND subsection = $${paramIndex++}`
-      params.push(subsection)
-    }
-
-    query += ' ORDER BY uploaded_at DESC'
-
-    const images = await db.query(query, params)
-
-    return NextResponse.json({ images })
+    return NextResponse.json({ images: images || [] })
   } catch (error) {
-    console.error('Database error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch images' },
-      { status: 500 }
-    )
+    console.error('API error:', error)
+    return NextResponse.json({ images: [] }) // Return empty array instead of error
   }
 }
 
@@ -182,26 +157,12 @@ export async function DELETE(request: NextRequest) {
     const { section, id } = await request.json()
     
     if (id) {
-      // Get old data for tracking
-      const oldData = await db.query('SELECT * FROM images WHERE id = $1', [id])
-      
-      // Delete individual image by ID
-      await db.query('UPDATE images SET is_active = false WHERE id = $1', [id])
-      
-      await trackChange('images', id, 'UPDATE', oldData[0], { ...oldData[0], is_active: false })
-      
+      await sql`UPDATE images SET is_active = false WHERE id = ${id}`
       return NextResponse.json({ success: true, message: 'Image deleted successfully' })
     }
     
     if (section) {
-      // Delete all images in section
-      const oldData = await db.query('SELECT * FROM images WHERE section = $1', [section])
-      await db.query('UPDATE images SET is_active = false WHERE section = $1', [section])
-      
-      for (const image of oldData) {
-        await trackChange('images', image.id, 'UPDATE', image, { ...image, is_active: false })
-      }
-      
+      await sql`UPDATE images SET is_active = false WHERE section = ${section}`
       return NextResponse.json({ success: true, message: 'Images deleted successfully' })
     }
     

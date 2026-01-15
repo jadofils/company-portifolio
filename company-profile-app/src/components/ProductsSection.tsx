@@ -1,238 +1,302 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ArrowRight, Gem } from 'lucide-react'
-import { useImages } from '@/hooks/useImages'
-import { useContent } from '@/hooks/useContent'
+import { ShoppingCart, Eye, X } from 'lucide-react'
 
-type ProductSectionKey =
-  | 'coltan'
-  | 'cassiterite'
-  | 'tungsten'
+interface Product {
+  id: string
+  title: string
+  description: string
+  image: string
+  price?: string
+}
 
 const ProductsSection = () => {
-  // Fixed duplicate sectionContent issue
-  const [activeSection, setActiveSection] = useState('products')
-  const { images: productsImages, refreshImages: refreshProductsImages } = useImages('products')
-  const { images: subsectionImages, refreshImages: refreshSubsectionImages } = useImages('products', activeSection === 'products' ? undefined : activeSection)
-  const { getContentBySection } = useContent()
-  const productsContent = getContentBySection('products')
-
-  const productSections: { id: ProductSectionKey; title: string }[] = [
-    { id: 'coltan', title: 'Coltan' },
-    { id: 'cassiterite', title: 'Cassiterite' },
-    { id: 'tungsten', title: 'Tungsten' }
-  ]
-
-  const sectionContent: Record<ProductSectionKey, { title: string; fullName: string; content: string; chemicalInfo: string; applications: string }> = {
-    'coltan': {
-      title: 'Coltan',
-      fullName: 'Columbite–tantalite (industrial name: tantalite)',
-      content: `Coltan is a dull black metallic ore that has become increasingly valuable in the electronics industry. It is the primary source of tantalum, a rare metal essential for manufacturing capacitors used in electronic devices.
-      
-      Our coltan processing ensures high purity levels suitable for industrial applications. The mineral undergoes rigorous testing and refinement to meet international quality standards for electronics manufacturing.`,
-      chemicalInfo: 'Industrial name: tantalite',
-      applications: 'Electronics capacitors, mobile phones, computers, automotive electronics'
-    },
-    'cassiterite': {
-      title: 'Cassiterite',
-      fullName: 'Tin Oxide (SnO₂)',
-      content: `Cassiterite is the primary ore of tin and appears generally opaque, but can be translucent in thin crystals. It is one of the most important tin-bearing minerals in commercial mining operations.
-      
-      Our cassiterite processing focuses on achieving optimal tin content through advanced separation techniques. The refined product meets international standards for tin production and industrial applications.`,
-      chemicalInfo: 'Chemical formula: SnO₂',
-      applications: 'Tin production, soldering materials, bronze alloys, food packaging'
-    },
-    'tungsten': {
-      title: 'Tungsten',
-      fullName: 'Wolfram (W)',
-      content: `Tungsten, also known as wolfram, is a rare metal with the highest melting point of all elements. It is essential for various industrial applications due to its exceptional hardness and heat resistance properties.
-      
-      Our tungsten processing delivers high-grade concentrates suitable for steel alloys, cutting tools, and specialized industrial applications. The mineral undergoes careful extraction and purification processes.`,
-      chemicalInfo: 'Symbol: W, Atomic number: 74',
-      applications: 'Steel alloys, cutting tools, electronics, aerospace components'
-    }
-  }
-
-  // Combine static sections with dynamic content - show main products first, then subsections
-  const allSections = [
-    { id: 'products', title: 'Products' },
-    ...productSections,
-    ...productsContent.filter(item => !productSections.some(s => s.title === item.title)).map(item => ({
-      id: item.subsection || item.title.toLowerCase().replace(/\s+/g, '-'),
-      title: item.title
-    }))
-  ]
-
-  const getCurrentContent = (sectionId: string) => {
-    // If main products section, return general products info
-    if (sectionId === 'products') {
-      return {
-        title: 'Products',
-        fullName: 'Our Mineral Products',
-        content: 'We specialize in processing and exporting high-quality minerals including coltan, cassiterite, and tungsten.',
-        chemicalInfo: 'Premium grade minerals',
-        applications: 'Electronics, industrial applications, manufacturing'
-      }
-    }
-    
-    // First check if it's dynamic content
-    const dynamicContent = productsContent.find(item => 
-      (item.subsection === sectionId) || 
-      (item.title.toLowerCase().replace(/\s+/g, '-') === sectionId)
-    )
-    if (dynamicContent) return {
-      title: dynamicContent.title,
-      fullName: dynamicContent.title,
-      content: dynamicContent.content,
-      chemicalInfo: 'Database content',
-      applications: 'Various industrial applications'
-    }
-    
-    // Otherwise use static content
-    return sectionContent[sectionId as ProductSectionKey] || null
-  }
-
-  const currentContent = getCurrentContent(activeSection)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [showContactForm, setShowContactForm] = useState(false)
+  const [contactForm, setContactForm] = useState({ name: '', email: '', company: '', message: '' })
+  const [products, setProducts] = useState<Product[]>([])
   
-  // Get the appropriate image for current section/subsection
-  const getCurrentImage = () => {
-    console.log('ProductsSection getCurrentImage called with activeSection:', activeSection)
-    console.log('productsImages:', productsImages)
-    console.log('subsectionImages:', subsectionImages)
-    
-    // If main products section, use general products images (where subsection is null)
-    if (activeSection === 'products') {
-      const mainProductsImages = productsImages.filter(img => img.subsection === null || img.subsection === '')
-      console.log('mainProductsImages:', mainProductsImages)
-      if (mainProductsImages && mainProductsImages.length > 0) {
-        return mainProductsImages[0].file_path
-      }
-      // Fallback to static image for main products section
-      return 'https://images.unsplash.com/photo-1610296669228-602fa827fc1f?w=800&h=600&fit=crop'
+  // Static fallback products
+  const staticProducts: Product[] = [
+    {
+      id: 'coltan',
+      title: 'Coltan (Tantalite)',
+      description: 'High-grade coltan ore essential for electronics manufacturing. Our coltan undergoes rigorous processing to meet international quality standards for capacitor production in mobile phones, computers, and automotive electronics.',
+      image: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=600&h=400&fit=crop'
+    },
+    {
+      id: 'cassiterite',
+      title: 'Cassiterite (Tin Ore)',
+      description: 'Premium cassiterite ore, the primary source of tin. Processed using advanced separation techniques to achieve optimal tin content for soldering materials, bronze alloys, and food packaging applications.',
+      image: 'https://images.unsplash.com/photo-1610296669228-602fa827fc1f?w=600&h=400&fit=crop'
+    },
+    {
+      id: 'tungsten',
+      title: 'Tungsten (Wolfram)',
+      description: 'High-grade tungsten concentrates with exceptional hardness and heat resistance. Essential for steel alloys, cutting tools, electronics, and aerospace components due to its highest melting point among all elements.',
+      image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=600&h=400&fit=crop'
     }
-    
-    // For subsections, try subsection-specific images first
-    console.log('Looking for subsection images for:', activeSection)
-    if (subsectionImages && subsectionImages.length > 0) {
-      console.log('Found subsection images:', subsectionImages)
-      return subsectionImages[0].file_path
-    }
-    
-    // Static fallback images for each subsection
-    const staticImages = {
-      'coltan': 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800&h=600&fit=crop',
-      'cassiterite': 'https://images.unsplash.com/photo-1610296669228-602fa827fc1f?w=800&h=600&fit=crop',
-      'tungsten': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&fit=crop'
-    }
-    
-    if (staticImages[activeSection as keyof typeof staticImages]) {
-      console.log('Using static fallback image for:', activeSection)
-      return staticImages[activeSection as keyof typeof staticImages]
-    }
-    
-    // Finally try general products section images as fallback
-    const mainProductsImages = productsImages.filter(img => img.subsection === null || img.subsection === '')
-    if (mainProductsImages && mainProductsImages.length > 0) {
-      console.log('Using fallback main products image:', mainProductsImages[0].file_path)
-      return mainProductsImages[0].file_path
-    }
-    
-    // Final fallback to static products image
-    console.log('Using final static fallback')
-    return 'https://images.unsplash.com/photo-1610296669228-602fa827fc1f?w=800&h=600&fit=crop'
-  }
+  ]
 
-  // Listen for subsection change events from navbar
+  // Load products from API
   useEffect(() => {
-    const handleSubsectionChange = (event: CustomEvent) => {
-      if (event.detail.section === 'products') {
-        setActiveSection(event.detail.subsection)
+    const loadProducts = async () => {
+      try {
+        // Get products content from API
+        const contentResponse = await fetch('/api/content?section=products')
+        const contentData = await contentResponse.json()
+        
+        // Get products images from API
+        const imagesResponse = await fetch('/api/images?section=products')
+        const imagesData = await imagesResponse.json()
+        
+        if (contentData.content && contentData.content.length > 0) {
+          const dynamicProducts: Product[] = contentData.content.map((content: any, index: number) => {
+            // Find images for this product subsection
+            const productImages = imagesData.images?.filter((img: any) => 
+              img.subsection === content.subsection || 
+              (!content.subsection && !img.subsection)
+            ) || []
+            
+            // Use first available image or fallback to static
+            const productImage = productImages.length > 0 
+              ? productImages[0].file_path 
+              : staticProducts[index % staticProducts.length]?.image || staticProducts[0].image
+            
+            return {
+              id: content.subsection || `product-${content.id}`,
+              title: content.title,
+              description: content.content,
+              image: productImage
+            }
+          })
+          
+          setProducts(dynamicProducts)
+        } else {
+          // Use static products if no database content
+          setProducts(staticProducts)
+        }
+      } catch (error) {
+        console.error('Error loading products:', error)
+        setProducts(staticProducts)
       }
     }
     
-    window.addEventListener('changeSubsection', handleSubsectionChange as EventListener)
-    return () => window.removeEventListener('changeSubsection', handleSubsectionChange as EventListener)
+    loadProducts()
   }, [])
 
-  // Refresh images when activeSection changes
-  useEffect(() => {
-    if (activeSection === 'products') {
-      refreshProductsImages()
-    } else {
-      refreshSubsectionImages()
-    }
-  }, [activeSection])
+  const truncateText = (text: string, maxLength: number = 150) => {
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
+  }
 
-  const currentImage = getCurrentImage()
+  const handleBuyNow = (product: Product) => {
+    setContactForm({
+      ...contactForm,
+      message: `I'm interested in purchasing ${product.title}. Please provide more information about pricing and availability.`
+    })
+    setShowContactForm(true)
+  }
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contactForm)
+      })
+      
+      if (response.ok) {
+        alert('Message sent successfully! We will contact you soon.')
+        setShowContactForm(false)
+        setContactForm({ name: '', email: '', company: '', message: '' })
+      } else {
+        alert('Failed to send message. Please try again.')
+      }
+    } catch (error) {
+      alert('Error sending message. Please try again.')
+    }
+  }
 
   return (
-    <section id="products" className="bg-white">
-      {/* Hero Image */}
-      <div className="w-full h-[85vh] bg-gray-100 relative flex items-center justify-center" style={{
-        backgroundImage: currentImage ? `url("${currentImage}")` : 'none',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center'
-      }}>
-        {!currentImage && <Gem className="h-24 w-24 text-gray-400" />}
-        <div className="absolute inset-0 bg-black/20"></div>
-        <div className="w-full h-full bg-black/30 flex items-center justify-center relative z-10">
-          <h2 className="text-4xl font-bold text-white">{currentContent?.title || 'Products'}</h2>
+    <section id="products" className="py-20 bg-gray-50">
+      <div className="container-max section-padding">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Products</h2>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Premium quality minerals processed to international standards for various industrial applications
+          </p>
         </div>
-      </div>
-      
-      <div className="py-20">
-        <div className="container-max section-padding">
-          <div className="grid lg:grid-cols-4 gap-8">
-            {/* Sidebar Navigation */}
-            <div className="lg:col-span-1">
-              <div className="bg-gray-50 border border-gray-200 rounded p-4">
-                <h3 className="font-bold text-gray-900 mb-4">Our Minerals</h3>
-                <ul className="space-y-2">
-                  {allSections.map((section) => (
-                    <li key={section.id}>
-                      <button
-                        onClick={() => setActiveSection(section.id)}
-                        className={`w-full text-left px-3 py-2 text-sm rounded transition-colors border-b-2 ${
-                          activeSection === section.id
-                            ? 'bg-blue-100 text-blue-900 font-medium border-blue-500'
-                            : 'text-gray-600 hover:bg-gray-100 border-transparent'
-                        }`}
-                      >
-                        {section.title}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+
+        {/* Products Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {products.map((product) => (
+            <div key={product.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+              {/* Product Image */}
+              <div className="h-64 bg-gray-200 relative overflow-hidden">
+                <img 
+                  src={product.image} 
+                  alt={product.title}
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    e.currentTarget.src = staticProducts[0].image
+                  }}
+                />
+              </div>
+              
+              {/* Product Info */}
+              <div className="p-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-3">{product.title}</h3>
+                <p className="text-gray-600 mb-4 leading-relaxed">
+                  {truncateText(product.description)}
+                </p>
+                
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setSelectedProduct(product)}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    <Eye className="h-4 w-4" />
+                    View Details
+                  </button>
+                  <button
+                    onClick={() => handleBuyNow(product)}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    Buy Now
+                  </button>
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+      </div>
 
-            {/* Main Content */}
-            <div className="lg:col-span-3">
-              <div className="prose prose-lg max-w-none">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  {currentContent?.title}
-                </h3>
-                <p className="text-lg text-gray-500 mb-6">
-                  {currentContent?.fullName}
-                </p>
-                <div className="bg-blue-50 border border-blue-200 rounded p-4 mb-6">
-                  <p className="text-sm font-medium text-blue-900">
-                    {currentContent?.chemicalInfo}
-                  </p>
-                </div>
-                <div className="text-gray-600 leading-relaxed whitespace-pre-line mb-6">
-                  {currentContent?.content}
-                </div>
-                <div className="bg-gray-50 border border-gray-200 rounded p-4">
-                  <h4 className="font-bold text-gray-900 mb-2">Applications:</h4>
-                  <p className="text-gray-600">{currentContent?.applications}</p>
-                </div>
+      {/* Product Detail Modal */}
+      {selectedProduct && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-2xl font-bold text-gray-900">{selectedProduct.title}</h3>
+                <button
+                  onClick={() => setSelectedProduct(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <img 
+                src={selectedProduct.image} 
+                alt={selectedProduct.title}
+                className="w-full h-64 object-cover rounded-lg mb-4"
+              />
+              
+              <p className="text-gray-600 leading-relaxed mb-6">
+                {selectedProduct.description}
+              </p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setSelectedProduct(null)
+                    handleBuyNow(selectedProduct)
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                  Buy Now
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Contact Form Modal */}
+      {showContactForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-900">Contact Us</h3>
+                <button
+                  onClick={() => setShowContactForm(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleContactSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={contactForm.name}
+                    onChange={(e) => setContactForm({...contactForm, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={contactForm.email}
+                    onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                  <input
+                    type="text"
+                    value={contactForm.company}
+                    onChange={(e) => setContactForm({...contactForm, company: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={contactForm.message}
+                    onChange={(e) => setContactForm({...contactForm, message: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowContactForm(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Send Message
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

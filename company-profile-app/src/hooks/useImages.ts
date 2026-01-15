@@ -15,8 +15,12 @@ export function useImages(section: string, subsection?: string) {
   const [images, setImages] = useState<ImageData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [lastFetch, setLastFetch] = useState<string>('')
 
   useEffect(() => {
+    const fetchKey = `${section}-${subsection || 'none'}`
+    if (fetchKey === lastFetch) return // Prevent duplicate fetches
+    
     const fetchImages = async () => {
       try {
         setLoading(true)
@@ -33,6 +37,7 @@ export function useImages(section: string, subsection?: string) {
         console.log('Received images data:', data)
         setImages(data.images || [])
         setError(null)
+        setLastFetch(fetchKey)
       } catch (err) {
         console.error('Error fetching images:', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch images')
@@ -46,14 +51,17 @@ export function useImages(section: string, subsection?: string) {
   }, [section, subsection])
 
   const refreshImages = async () => {
-    const params = new URLSearchParams()
-    params.append('section', section)
-    if (subsection) params.append('subsection', subsection)
+    const fetchKey = `${section}-${subsection || 'none'}`
     
     try {
+      const params = new URLSearchParams()
+      params.append('section', section)
+      if (subsection) params.append('subsection', subsection)
+      
       const response = await fetch(`/api/images?${params}`)
       const data = await response.json()
       setImages(data.images || [])
+      setLastFetch(fetchKey)
     } catch (err) {
       console.error('Error refreshing images:', err)
     }

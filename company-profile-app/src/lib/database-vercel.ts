@@ -1,52 +1,11 @@
 import bcrypt from 'bcryptjs'
 import { sql } from '@vercel/postgres'
 
-// Database interface
-interface DatabaseAdapter {
-  query: (sqlQuery: string, params?: any[]) => Promise<any>
-  exec: (sqlQuery: string) => Promise<void>
-}
-
-// Vercel Postgres adapter
-class PostgresAdapter implements DatabaseAdapter {
-  async query(sqlQuery: string, params: any[] = []): Promise<any> {
-    // Convert SQLite syntax to PostgreSQL
-    const pgQuery = sqlQuery
-      .replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY')
-      .replace(/DATETIME DEFAULT CURRENT_TIMESTAMP/g, 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
-      .replace(/BOOLEAN/g, 'BOOLEAN')
-    
-    const { rows } = await sql.query(pgQuery, params)
-    return rows
-  }
-  
-  async exec(sqlQuery: string): Promise<void> {
-    await this.query(sqlQuery)
-  }
-}
-
-// Use Postgres adapter (configured for Vercel)
-const db: DatabaseAdapter = new PostgresAdapter()
-
-// Change tracking table
+// Initialize database tables for Vercel Postgres
 export async function initDatabase() {
   try {
-    // Change tracking table
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS change_log (
-        id SERIAL PRIMARY KEY,
-        table_name VARCHAR(50) NOT NULL,
-        record_id INTEGER,
-        action VARCHAR(10) NOT NULL,
-        old_data JSONB,
-        new_data JSONB,
-        changed_by VARCHAR(100),
-        changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-
     // Users table
-    await db.exec(`
+    await sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -55,10 +14,10 @@ export async function initDatabase() {
         role VARCHAR(50) DEFAULT 'admin',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `)
+    `
 
     // Contact messages table
-    await db.exec(`
+    await sql`
       CREATE TABLE IF NOT EXISTS contact_messages (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -68,10 +27,10 @@ export async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         status VARCHAR(20) DEFAULT 'unread'
       )
-    `)
+    `
 
     // Company content table
-    await db.exec(`
+    await sql`
       CREATE TABLE IF NOT EXISTS company_content (
         id SERIAL PRIMARY KEY,
         section VARCHAR(50) NOT NULL,
@@ -81,10 +40,10 @@ export async function initDatabase() {
         image_url TEXT,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `)
+    `
 
     // Images table
-    await db.exec(`
+    await sql`
       CREATE TABLE IF NOT EXISTS images (
         id SERIAL PRIMARY KEY,
         filename VARCHAR(255) NOT NULL,
@@ -101,20 +60,20 @@ export async function initDatabase() {
         uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         is_active BOOLEAN DEFAULT true
       )
-    `)
+    `
 
     // Settings table
-    await db.exec(`
+    await sql`
       CREATE TABLE IF NOT EXISTS settings (
         id SERIAL PRIMARY KEY,
         key VARCHAR(100) UNIQUE NOT NULL,
         value TEXT NOT NULL,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `)
+    `
 
     // Publications table
-    await db.exec(`
+    await sql`
       CREATE TABLE IF NOT EXISTS publications (
         id SERIAL PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
@@ -126,7 +85,7 @@ export async function initDatabase() {
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `)
+    `
 
     // Seed default data
     await seedDefaultData()
@@ -136,51 +95,27 @@ export async function initDatabase() {
   }
 }
 
-// Track changes function
-export async function trackChange(tableName: string, recordId: number | null, action: string, oldData: any = null, newData: any = null, changedBy: string = 'system') {
-  try {
-    await db.query(
-      'INSERT INTO change_log (table_name, record_id, action, old_data, new_data, changed_by) VALUES ($1, $2, $3, $4, $5, $6)',
-      [tableName, recordId, action, JSON.stringify(oldData), JSON.stringify(newData), changedBy]
-    )
-  } catch (error) {
-    console.error('Change tracking error:', error)
-  }
-}
-
 async function seedDefaultData() {
   // Check and seed users
-  const userCount = await db.query('SELECT COUNT(*) as count FROM users')
+  const { rows: userCount } = await sql`SELECT COUNT(*) as count FROM users`
   if (userCount[0].count === '0') {
     const users = [
-      { 
-        email: process.env.ADMIN_EMAIL_1 || 'admin1@example.com', 
-        password: process.env.ADMIN_PASSWORD_1 || 'DefaultPass123!', 
-        name: process.env.ADMIN_NAME_1 || 'Admin User 1' 
-      },
-      { 
-        email: process.env.ADMIN_EMAIL_2 || 'admin2@example.com', 
-        password: process.env.ADMIN_PASSWORD_2 || 'DefaultPass123!', 
-        name: process.env.ADMIN_NAME_2 || 'Admin User 2' 
-      },
-      { 
-        email: process.env.ADMIN_EMAIL_3 || 'admin@example.com', 
-        password: process.env.ADMIN_PASSWORD_3 || 'DefaultPass123!', 
-        name: process.env.ADMIN_NAME_3 || 'Administrator' 
-      }
+      { email: 'jasezikeye50@gmail.com', password: 'Sezikeye@12', name: 'Jase Zikeye' },
+      { email: 'yvesmuhire@gmail.com', password: 'Muhire@12', name: 'Yves Muhire' },
+      { email: 'admin@gmail.com', password: 'Admin@12', name: 'Administrator' }
     ]
     
     for (const user of users) {
       const hashedPassword = bcrypt.hashSync(user.password, 10)
-      await db.query(
-        'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4)',
-        [user.email, hashedPassword, user.name, 'admin']
-      )
+      await sql`
+        INSERT INTO users (email, password, name, role) 
+        VALUES (${user.email}, ${hashedPassword}, ${user.name}, 'admin')
+      `
     }
   }
 
   // Check and seed settings
-  const settingsCount = await db.query('SELECT COUNT(*) as count FROM settings')
+  const { rows: settingsCount } = await sql`SELECT COUNT(*) as count FROM settings`
   if (settingsCount[0].count === '0') {
     const defaultSettings = [
       ['company_name', 'MineralsCorp'],
@@ -191,9 +126,9 @@ async function seedDefaultData() {
     ]
     
     for (const [key, value] of defaultSettings) {
-      await db.query('INSERT INTO settings (key, value) VALUES ($1, $2)', [key, value])
+      await sql`INSERT INTO settings (key, value) VALUES (${key}, ${value})`
     }
   }
 }
 
-export { db }
+export { sql }

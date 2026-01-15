@@ -84,11 +84,17 @@ const PoliciesSection = () => {
   const allSections = [
     { id: 'policies', title: 'Policies' },
     ...staticSections,
-    ...policiesContent.filter(item => !staticSections.some(s => s.title === item.title)).map(item => ({
-      id: item.subsection || item.title.toLowerCase().replace(/\s+/g, '-'),
-      title: item.title
-    }))
+    ...policiesContent.filter(item => !staticSections.some(s => s.title === item.title)).map(item => {
+      console.log('Dynamic policy item:', item)
+      return {
+        id: item.subsection || item.title.toLowerCase().replace(/\s+/g, '-'),
+        title: item.title
+      }
+    })
   ]
+  
+  console.log('PoliciesSection allSections:', allSections)
+  console.log('PoliciesSection policiesContent:', policiesContent)
 
   const getCurrentContent = (sectionId: string) => {
     // If main policies section, return general policies info
@@ -125,26 +131,60 @@ const PoliciesSection = () => {
   
   // Get the appropriate image for current section/subsection
   const getCurrentImage = () => {
-    console.log('PoliciesSection getCurrentImage called with activeSection:', activeSection)
-    console.log('policiesImages:', policiesImages)
-    console.log('subsectionImages:', subsectionImages)
+    console.log('=== PoliciesSection getCurrentImage Debug ===')
+    console.log('activeSection:', activeSection)
+    console.log('policiesImages (all):', policiesImages)
+    console.log('subsectionImages (filtered):', subsectionImages)
+    
+    // Debug: Show what we're looking for
+    console.log('Looking for images with:')
+    console.log('- section: policies')
+    console.log('- subsection:', activeSection)
     
     // If main policies section, use general policies images (where subsection is null)
     if (activeSection === 'policies') {
       const mainPoliciesImages = policiesImages.filter(img => img.subsection === null || img.subsection === '')
-      console.log('mainPoliciesImages:', mainPoliciesImages)
+      console.log('mainPoliciesImages filtered:', mainPoliciesImages)
       if (mainPoliciesImages && mainPoliciesImages.length > 0) {
+        console.log('Using main policies image:', mainPoliciesImages[0].file_path)
         return mainPoliciesImages[0].file_path
       }
-      // Fallback to static image for main policies section
+      console.log('Using static fallback for main policies')
       return 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&h=600&fit=crop'
     }
     
     // For subsections, try subsection-specific images first
     console.log('Looking for subsection images for:', activeSection)
+    console.log('subsectionImages available:', subsectionImages)
     if (subsectionImages && subsectionImages.length > 0) {
-      console.log('Found subsection images:', subsectionImages)
+      console.log('Found subsection images, using:', subsectionImages[0].file_path)
       return subsectionImages[0].file_path
+    }
+    
+    // Debug: Check all possible matches in policiesImages
+    console.log('Checking all policiesImages for matches:')
+    policiesImages.forEach((img, index) => {
+      console.log(`Image ${index}:`, {
+        id: img.id,
+        subsection: img.subsection,
+        title: img.title,
+        file_path: img.file_path,
+        matches_activeSection: img.subsection === activeSection
+      })
+    })
+    
+    // Try to find any policies images that match the current subsection
+    // Check both exact match and normalized versions
+    const normalizedActiveSection = activeSection.replace(/\s+/g, '-').toLowerCase()
+    const matchingPoliciesImages = policiesImages.filter(img => 
+      img.subsection === activeSection || 
+      img.subsection === normalizedActiveSection ||
+      (img.subsection && img.subsection.replace(/\s+/g, '-').toLowerCase() === normalizedActiveSection)
+    )
+    console.log('matchingPoliciesImages for', activeSection, '(normalized:', normalizedActiveSection, '):', matchingPoliciesImages)
+    if (matchingPoliciesImages && matchingPoliciesImages.length > 0) {
+      console.log('Using matching policies image:', matchingPoliciesImages[0].file_path)
+      return matchingPoliciesImages[0].file_path
     }
     
     // Static fallback images for each subsection
@@ -175,7 +215,9 @@ const PoliciesSection = () => {
   // Listen for subsection change events from navbar
   useEffect(() => {
     const handleSubsectionChange = (event: CustomEvent) => {
+      console.log('PoliciesSection received changeSubsection event:', event.detail)
       if (event.detail.section === 'policies') {
+        console.log('Setting activeSection to:', event.detail.subsection)
         setActiveSection(event.detail.subsection)
       }
     }
@@ -186,12 +228,15 @@ const PoliciesSection = () => {
 
   // Refresh images when activeSection changes
   useEffect(() => {
+    console.log('PoliciesSection: activeSection changed to:', activeSection)
+    // Don't refresh if we're still on the same section
     if (activeSection === 'policies') {
       refreshPoliciesImages()
     } else {
+      // Only refresh if we actually have a different subsection
       refreshSubsectionImages()
     }
-  }, [activeSection])
+  }, [activeSection]) // Remove the function dependencies to prevent infinite loop
 
   const currentImage = getCurrentImage()
 

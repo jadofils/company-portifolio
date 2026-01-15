@@ -466,7 +466,7 @@ export default function AdminDashboard() {
           body: JSON.stringify({ key: 'company_logo', value: result.path })
         })
         
-        setSettings({...settings, company_logo: result.path})
+        setSettings({...(settings ?? {}), company_logo: result.path})
         alert('Logo uploaded successfully!')
         window.location.reload()
       } else {
@@ -777,8 +777,15 @@ export default function AdminDashboard() {
                           className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                         >
                           <option value="">Select subsection...</option>
+                          {/* Static predefined subsections */}
                           {sections.find(s => s.value === selectedSection)?.subsections.map(sub => (
                             <option key={sub} value={sub}>{sub.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+                          ))}
+                          {/* Dynamic subsections from content */}
+                          {availableSubsections[selectedSection]?.filter(sub => 
+                            !sections.find(s => s.value === selectedSection)?.subsections.includes(sub)
+                          ).map(sub => (
+                            <option key={sub} value={sub}>{sub.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
                           ))}
                         </select>
                       </div>
@@ -1402,8 +1409,8 @@ export default function AdminDashboard() {
                           <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
                           <input 
                             type="text" 
-                            value={settings.company_name}
-                            onChange={(e) => setSettings({...settings, company_name: e.target.value})}
+                            value={settings?.company_name ?? ''}
+                            onChange={(e) => setSettings({...(settings ?? {}), company_name: e.target.value})}
                             className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
                               errors.company_name ? 'border-red-500' : 'border-gray-300'
                             }`}
@@ -1438,8 +1445,8 @@ export default function AdminDashboard() {
                             {logoUploadMode === 'url' ? (
                               <input 
                                 type="text" 
-                                value={settings.company_logo}
-                                onChange={(e) => setSettings({...settings, company_logo: e.target.value})}
+                                value={settings?.company_logo ?? ''}
+                                onChange={(e) => setSettings({...(settings ?? {}), company_logo: e.target.value})}
                                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                                 placeholder="/logo.png or https://example.com/logo.png"
                               />
@@ -1463,7 +1470,7 @@ export default function AdminDashboard() {
                               </div>
                             )}
                             
-                            {settings.company_logo && (
+                            {settings?.company_logo && (
                               <div className="mt-2">
                                 <img 
                                   src={settings.company_logo} 
@@ -1482,8 +1489,8 @@ export default function AdminDashboard() {
                           <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
                           <input 
                             type="text" 
-                            value={settings.company_phone}
-                            onChange={(e) => setSettings({...settings, company_phone: e.target.value})}
+                            value={settings?.company_phone ?? ''}
+                            onChange={(e) => setSettings({...(settings ?? {}), company_phone: e.target.value})}
                             className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
                               errors.company_phone ? 'border-red-500' : 'border-gray-300'
                             }`}
@@ -1495,8 +1502,8 @@ export default function AdminDashboard() {
                           <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                           <input 
                             type="email" 
-                            value={settings.company_email}
-                            onChange={(e) => setSettings({...settings, company_email: e.target.value})}
+                            value={settings?.company_email ?? ''}
+                            onChange={(e) => setSettings({...(settings ?? {}), company_email: e.target.value})}
                             className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
                               errors.company_email ? 'border-red-500' : 'border-gray-300'
                             }`}
@@ -1509,8 +1516,8 @@ export default function AdminDashboard() {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                           <textarea 
-                            value={settings.company_address}
-                            onChange={(e) => setSettings({...settings, company_address: e.target.value})}
+                            value={settings?.company_address ?? ''}
+                            onChange={(e) => setSettings({...(settings ?? {}), company_address: e.target.value})}
                             className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
                               errors.company_address ? 'border-red-500' : 'border-gray-300'
                             }`}
@@ -1522,8 +1529,8 @@ export default function AdminDashboard() {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Footer Description</label>
                           <textarea 
-                            value={settings.footer_description}
-                            onChange={(e) => setSettings({...settings, footer_description: e.target.value})}
+                            value={settings?.footer_description ?? ''}
+                            onChange={(e) => setSettings({...(settings ?? {}), footer_description: e.target.value})}
                             className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
                               errors.footer_description ? 'border-red-500' : 'border-gray-300'
                             }`}
@@ -1556,8 +1563,8 @@ export default function AdminDashboard() {
                           <label className="block text-sm font-medium text-gray-700 mb-2">Facebook URL</label>
                           <input 
                             type="url" 
-                            value={settings.facebook_url}
-                            onChange={(e) => setSettings({...settings, facebook_url: e.target.value})}
+                            value={settings?.facebook_url ?? ''}
+                            onChange={(e) => setSettings({...(settings ?? {}), facebook_url: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                           />
                         </div>
@@ -1566,8 +1573,8 @@ export default function AdminDashboard() {
                           <label className="block text-sm font-medium text-gray-700 mb-2">Twitter URL</label>
                           <input 
                             type="url" 
-                            value={settings.twitter_url}
-                            onChange={(e) => setSettings({...settings, twitter_url: e.target.value})}
+                            value={settings?.twitter_url ?? ''}
+                            onChange={(e) => setSettings({...(settings ?? {}), twitter_url: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                           />
                         </div>
@@ -1576,8 +1583,8 @@ export default function AdminDashboard() {
                           <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn URL</label>
                           <input 
                             type="url" 
-                            value={settings.linkedin_url}
-                            onChange={(e) => setSettings({...settings, linkedin_url: e.target.value})}
+                            value={settings?.linkedin_url ?? ''}
+                            onChange={(e) => setSettings({...(settings ?? {}), linkedin_url: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                           />
                         </div>
@@ -1588,8 +1595,8 @@ export default function AdminDashboard() {
                           <label className="block text-sm font-medium text-gray-700 mb-2">Instagram URL</label>
                           <input 
                             type="url" 
-                            value={settings.instagram_url}
-                            onChange={(e) => setSettings({...settings, instagram_url: e.target.value})}
+                            value={settings?.instagram_url ?? ''}
+                            onChange={(e) => setSettings({...(settings ?? {}), instagram_url: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                           />
                         </div>
@@ -1598,8 +1605,8 @@ export default function AdminDashboard() {
                           <label className="block text-sm font-medium text-gray-700 mb-2">YouTube URL</label>
                           <input 
                             type="url" 
-                            value={settings.youtube_url}
-                            onChange={(e) => setSettings({...settings, youtube_url: e.target.value})}
+                            value={settings?.youtube_url ?? ''}
+                            onChange={(e) => setSettings({...(settings ?? {}), youtube_url: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                           />
                         </div>

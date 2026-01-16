@@ -5,6 +5,7 @@ import { Menu, X, ChevronDown, Building2, Users, History, Target, Leaf, Search, 
 import { useRouter, usePathname } from 'next/navigation'
 import { useSettings } from '@/hooks/useSettings'
 import { useContent } from '@/hooks/useContent'
+import { useTheme } from '@/hooks/useTheme'
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -13,6 +14,7 @@ const Navbar = () => {
   const pathname = usePathname()
   const { settings } = useSettings()
   const { getContentBySection, refreshContent } = useContent()
+  const { theme } = useTheme()
 
   // Fetch images from API
   const fetchImages = async () => {
@@ -233,7 +235,9 @@ const Navbar = () => {
   console.log('Policies:', policies)
 
   return (
-    <nav className="fixed top-0 w-full bg-white shadow-sm z-50 border-b border-gray-200">
+    <nav className={`fixed top-0 w-full shadow-sm z-50 border-b transition-colors duration-200 ${
+      theme.theme_mode === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
+    }`} style={{ fontFamily: theme.font_family }}>
       <div className="container-max section-padding">
         <div className="flex justify-between items-center h-20">
           <div className="flex items-center space-x-3">
@@ -249,7 +253,15 @@ const Navbar = () => {
               />
             ) : null}
             <Building2 className={`h-16 w-16 text-blue-600 ${settings.company_logo ? 'hidden' : ''}`} />
-            <h1 className="text-xl font-bold text-gray-900">{settings.company_name}</h1>
+            <h1 
+              className={`text-xl font-bold ${theme.theme_mode === 'dark' ? 'text-white' : 'text-gray-900'}`}
+              style={{ 
+                fontFamily: theme.font_family,
+                fontSize: theme.font_size === 'small' ? '18px' : theme.font_size === 'large' ? '24px' : '20px'
+              }}
+            >
+              {settings.company_name}
+            </h1>
           </div>
 
           {/* Desktop Menu */}
@@ -257,7 +269,13 @@ const Navbar = () => {
             <div className="flex items-center space-x-8">
               <button
                 onClick={() => scrollToSection('home')}
-                className="text-gray-700 hover:text-gray-900 text-sm font-medium transition-colors duration-200"
+                className={`hover:text-opacity-80 text-sm font-medium transition-colors duration-200 ${
+                  theme.theme_mode === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                }`}
+                style={{ 
+                  fontFamily: theme.font_family,
+                  fontSize: theme.font_size === 'small' ? '13px' : theme.font_size === 'large' ? '15px' : '14px'
+                }}
               >
                 Home
               </button>
@@ -265,11 +283,19 @@ const Navbar = () => {
               <div className="relative group">
                 <button 
                   onClick={() => scrollToSection('about')}
-                  className="text-gray-700 hover:text-gray-900 text-sm font-medium flex items-center transition-colors duration-200"
+                  className={`hover:text-opacity-80 text-sm font-medium flex items-center transition-colors duration-200 ${
+                    theme.theme_mode === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                  }`}
+                  style={{ 
+                    fontFamily: theme.font_family,
+                    fontSize: theme.font_size === 'small' ? '13px' : theme.font_size === 'large' ? '15px' : '14px'
+                  }}
                 >
                   About Us <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
-                <div className="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className={`absolute left-0 mt-2 w-64 border rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 ${
+                  theme.theme_mode === 'dark' ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-200'
+                }`}>
                   <div className="py-2">
                     {aboutItems.map((item) => (
                       <button

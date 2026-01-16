@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { ArrowRight, Shield } from 'lucide-react'
 import { useImages } from '@/hooks/useImages'
 import { useContent } from '@/hooks/useContent'
+import { useTheme } from '@/hooks/useTheme'
 
 type PolicySectionKey =
   | 'environmental-policy'
@@ -17,6 +18,8 @@ const PoliciesSection = () => {
   const { images: subsectionImages, refreshImages: refreshSubsectionImages } = useImages('policies', activeSection === 'policies' ? undefined : activeSection)
   const { getContentBySection } = useContent()
   const policiesContent = getContentBySection('policies')
+  const { getThemeClasses } = useTheme()
+  const themeClasses = getThemeClasses
 
   const staticSections = [
     { id: 'environmental-policy', title: 'Environmental Policy' },
@@ -269,7 +272,7 @@ const PoliciesSection = () => {
         </div>
       </div>
       
-      <div className="py-20">
+      <div className={themeClasses.spacing}>
         <div className="container-max section-padding">
           <div className="grid lg:grid-cols-4 gap-8">
             {/* Sidebar Navigation */}

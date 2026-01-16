@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useImages } from '@/hooks/useImages'
 import { useContent } from '@/hooks/useContent'
+import { useTheme } from '@/hooks/useTheme'
 import { Building } from 'lucide-react'
 
 type AboutSectionKey =
@@ -14,6 +15,8 @@ type AboutSectionKey =
 
 const AboutSection = () => {
   const { getContentBySection } = useContent()
+  const { theme, getThemeClasses } = useTheme()
+  const themeClasses = getThemeClasses
   const aboutContent = getContentBySection('about')
   const [activeSection, setActiveSection] = useState('about')
   const { images: aboutImages, refreshImages: refreshAboutImages } = useImages('about')
@@ -117,7 +120,7 @@ const AboutSection = () => {
   
   // Get the appropriate image for current section/subsection
   const getCurrentImage = () => {
-    console.log('getCurrentImage called with activeSection:', activeSection)
+    console.log('AboutSection getCurrentImage called with activeSection:', activeSection)
     console.log('aboutImages:', aboutImages)
     console.log('subsectionImages:', subsectionImages)
     
@@ -143,6 +146,20 @@ const AboutSection = () => {
     if (currentContent?.image_url) {
       console.log('Using content image_url:', currentContent.image_url)
       return currentContent.image_url
+    }
+    
+    // Try to find any about images that match the current subsection
+    // Check both exact match and normalized versions
+    const normalizedActiveSection = activeSection.replace(/\s+/g, '-').toLowerCase()
+    const matchingAboutImages = aboutImages.filter(img => 
+      img.subsection === activeSection || 
+      img.subsection === normalizedActiveSection ||
+      (img.subsection && img.subsection.replace(/\s+/g, '-').toLowerCase() === normalizedActiveSection)
+    )
+    console.log('matchingAboutImages for', activeSection, '(normalized:', normalizedActiveSection, '):', matchingAboutImages)
+    if (matchingAboutImages && matchingAboutImages.length > 0) {
+      console.log('Using matching about image:', matchingAboutImages[0].file_path)
+      return matchingAboutImages[0].file_path
     }
     
     // Static fallback images for each subsection
@@ -209,7 +226,7 @@ const AboutSection = () => {
   const currentImage = getCurrentImage()
 
   return (
-    <section id="about" className="bg-white">
+    <section id="about" className={`${theme.theme_mode === 'dark' ? 'bg-gray-900' : 'bg-white'} transition-colors duration-200`}>
       {/* Hero Image */}
       <div className="w-full h-[85vh] bg-gray-100 relative flex items-center justify-center" style={{
         backgroundImage: currentImage ? `url("${currentImage}")` : 'none',
@@ -219,27 +236,43 @@ const AboutSection = () => {
         {!currentImage && <Building className="h-24 w-24 text-gray-400" />}
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="w-full h-full bg-black/30 flex items-center justify-center relative z-10">
-          <h2 className="text-4xl font-bold text-white">{currentContent?.title || 'About Us'}</h2>
+          <h2 
+            className="text-4xl font-bold text-white"
+            style={{ fontFamily: theme.font_family }}
+          >
+            {currentContent?.title || 'About Us'}
+          </h2>
         </div>
       </div>
       
-      <div className="py-20">
+      <div className={themeClasses.spacing}>
         <div className="container-max section-padding">
           <div className="grid lg:grid-cols-4 gap-8">
             {/* Sidebar Navigation */}
             <div className="lg:col-span-1">
-              <div className="bg-gray-50 border border-gray-200 rounded p-4">
-                <h3 className="font-bold text-gray-900 mb-4">About Sections</h3>
+              <div className={`${theme.theme_mode === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'} border ${themeClasses.radius} p-4 transition-colors duration-200`}>
+                <h3 
+                  className={`font-bold mb-4 ${theme.theme_mode === 'dark' ? 'text-white' : 'text-gray-900'}`}
+                  style={{ color: theme.primary_color, fontFamily: theme.font_family }}
+                >
+                  About Sections
+                </h3>
                 <ul className="space-y-2">
                   {allSections.map((item) => (
                     <li key={item.id}>
                       <button
                         onClick={() => setActiveSection(item.id)}
-                        className={`w-full text-left px-3 py-2 text-sm rounded transition-colors border-b-2 ${
+                        className={`w-full text-left px-3 py-2 text-sm ${themeClasses.radius} transition-colors border-b-2 ${
                           activeSection === item.id
-                            ? 'bg-blue-100 text-blue-900 font-medium border-blue-500'
-                            : 'text-gray-600 hover:bg-gray-100 border-transparent'
+                            ? `font-medium border-[var(--primary-color)]`
+                            : `border-transparent hover:${theme.theme_mode === 'dark' ? 'bg-gray-700' : 'bg-gray-100'}`
                         }`}
+                        style={{
+                          backgroundColor: activeSection === item.id ? `${theme.primary_color}20` : 'transparent',
+                          color: activeSection === item.id ? theme.primary_color : theme.theme_mode === 'dark' ? '#d1d5db' : '#4b5563',
+                          fontFamily: theme.font_family,
+                          fontSize: theme.font_size === 'small' ? '14px' : theme.font_size === 'large' ? '18px' : '16px'
+                        }}
                       >
                         {item.title}
                       </button>
@@ -252,10 +285,19 @@ const AboutSection = () => {
             {/* Main Content */}
             <div className="lg:col-span-3">
               <div className="prose prose-lg max-w-none">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                <h3 
+                  className={`text-2xl font-bold mb-6 ${theme.theme_mode === 'dark' ? 'text-white' : 'text-gray-900'}`}
+                  style={{ color: theme.primary_color, fontFamily: theme.font_family }}
+                >
                   {currentContent?.title}
                 </h3>
-                <div className="text-gray-600 leading-relaxed whitespace-pre-line">
+                <div 
+                  className={`leading-relaxed whitespace-pre-line ${theme.theme_mode === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}
+                  style={{ 
+                    fontFamily: theme.font_family,
+                    fontSize: theme.font_size === 'small' ? '14px' : theme.font_size === 'large' ? '18px' : '16px'
+                  }}
+                >
                   {currentContent?.content}
                 </div>
                 {/* Show additional subsection image if different from hero */}
@@ -264,7 +306,7 @@ const AboutSection = () => {
                     <img 
                       src={currentContent.image_url} 
                       alt={currentContent.title}
-                      className="w-full h-[60vh] object-cover rounded"
+                      className={`w-full h-[60vh] object-cover ${themeClasses.radius}`}
                     />
                   </div>
                 )}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Search, FlaskConical, Hammer, Tag, Package, Truck, Ship, ArrowRight, Cog } from 'lucide-react'
 import { useImages } from '@/hooks/useImages'
 import { useContent } from '@/hooks/useContent'
+import { useTheme } from '@/hooks/useTheme'
 
 type ServiceSectionKey =
   | 'sourcing'
@@ -20,6 +21,8 @@ const ServicesSection = () => {
   const { images: subsectionImages, refreshImages: refreshSubsectionImages } = useImages('services', activeSection === 'services' ? undefined : activeSection)
   const { getContentBySection } = useContent()
   const servicesContent = getContentBySection('services')
+  const { getThemeClasses } = useTheme()
+  const themeClasses = getThemeClasses
 
   const serviceSections: { id: ServiceSectionKey; title: string }[] = [
     { id: 'sourcing', title: 'Sourcing' },
@@ -232,7 +235,7 @@ const ServicesSection = () => {
         </div>
       </div>
       
-      <div className="py-20">
+      <div className={themeClasses.spacing}>
         <div className="container-max section-padding">
           <div className="grid lg:grid-cols-4 gap-8">
             {/* Sidebar Navigation */}

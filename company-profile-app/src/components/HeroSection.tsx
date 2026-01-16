@@ -3,10 +3,13 @@
 import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, ArrowRight, Mountain } from 'lucide-react'
 import { useImages } from '@/hooks/useImages'
+import { useTheme } from '@/hooks/useTheme'
 
 const HeroSection = () => {
   const [currentImage, setCurrentImage] = useState(0)
   const { imageUrls, hasUploadedImages, loading } = useImages('hero')
+  const { getThemeClasses } = useTheme()
+  const themeClasses = getThemeClasses
   
   useEffect(() => {
     console.log('Hero images:', imageUrls, 'Has uploaded:', hasUploadedImages)
@@ -33,7 +36,7 @@ const HeroSection = () => {
   }
 
   return (
-    <section id="home" className="py-20 bg-white mt-16">
+    <section id="home" className={`${themeClasses.spacing} ${themeClasses.background} mt-16`}>
       <div className="container-max section-padding">
         <div className="grid lg:grid-cols-10 gap-8 items-center">
           {/* Image Gallery - 70% */}

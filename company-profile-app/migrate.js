@@ -3,8 +3,8 @@ require('dotenv').config()
 
 async function migrate() {
   try {
-    console.log('Starting database migration...')
-    console.log('Using POSTGRES_URL:', process.env.POSTGRES_URL ? 'Found' : 'Missing')
+   // console.log('Starting database migration...')
+   // console.log('Using POSTGRES_URL:', process.env.POSTGRES_URL ? 'Found' : 'Missing')
 
     // Create change_log table
     await sql`

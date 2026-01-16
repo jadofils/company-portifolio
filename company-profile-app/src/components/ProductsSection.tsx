@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { ShoppingCart, Eye, X } from 'lucide-react'
+import { useTheme } from '@/hooks/useTheme'
 
 interface Product {
   id: string
@@ -16,6 +17,8 @@ const ProductsSection = () => {
   const [showContactForm, setShowContactForm] = useState(false)
   const [contactForm, setContactForm] = useState({ name: '', email: '', company: '', message: '' })
   const [products, setProducts] = useState<Product[]>([])
+  const { getThemeClasses } = useTheme()
+  const themeClasses = getThemeClasses
   
   // Static fallback products
   const staticProducts: Product[] = [
@@ -51,8 +54,8 @@ const ProductsSection = () => {
         const contentResponse = await fetch('/api/content?section=products')
         const contentData = await contentResponse.json()
         
-        console.log('Products images:', imagesData.images)
-        console.log('Products content:', contentData.content)
+        // console.log('Products images:', imagesData.images)
+        // console.log('Products content:', contentData.content)
         
         // If we have images but no content, create products from images
         if (imagesData.images && imagesData.images.length > 0) {
@@ -100,7 +103,7 @@ const ProductsSection = () => {
           setProducts(staticProducts)
         }
       } catch (error) {
-        console.error('Error loading products:', error)
+        // console.error('Error loading products:', error)
         setProducts(staticProducts)
       }
     }
@@ -166,7 +169,7 @@ const ProductsSection = () => {
             setProducts(staticProducts)
           }
         } catch (error) {
-          console.error('Error loading products:', error)
+          // console.error('Error loading products:', error)
           setProducts(staticProducts)
         }
       }
@@ -212,7 +215,7 @@ const ProductsSection = () => {
   }
 
   return (
-    <section id="products" className="py-20 bg-gray-50">
+    <section id="products" className={`${themeClasses.spacing} bg-gray-50`}>
       <div className="container-max section-padding">
         {/* Header */}
         <div className="text-center mb-16">

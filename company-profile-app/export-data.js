@@ -7,7 +7,7 @@ function exportSQLiteData() {
   const dbPath = path.join(process.cwd(), 'company.db')
   
   if (!fs.existsSync(dbPath)) {
-    console.log('No company.db found - nothing to migrate')
+   // console.log('No company.db found - nothing to migrate')
     return null
   }
 
@@ -24,8 +24,8 @@ function exportSQLiteData() {
   
   // Save to JSON file
   fs.writeFileSync('migration-data.json', JSON.stringify(data, null, 2))
-  console.log('Data exported to migration-data.json')
-  console.log(`Found ${data.users.length} users, ${data.contact_messages.length} messages, ${data.settings.length} settings`)
+ // console.log('Data exported to migration-data.json')
+ // console.log(`Found ${data.users.length} users, ${data.contact_messages.length} messages, ${data.settings.length} settings`)
   
   return data
 }

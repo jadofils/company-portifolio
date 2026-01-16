@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Navy Blue Pink Grey Vintage Kids Pastel Theme */
+  --primary-color: #213C51; /* Navy Blue */
+  --secondary-color: #6594B1; /* Light Blue */
+  --accent-color: #DDAED3; /* Pink */
+  --background-color: #EEEEEE; /* Light Grey */
+  --text-color: #213C51; /* Navy Blue for text */
+  --text-secondary: #6594B1; /* Light Blue for secondary text */
+  --border-color: #DDAED3; /* Pink for borders */
+  --hover-color: rgba(101, 148, 177, 0.1); /* Light Blue with opacity */
+  --font-family: 'Inter, sans-serif';
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -16,18 +29,60 @@ html {
   }
   
   .btn-primary {
-    @apply bg-gray-900 hover:bg-gray-800 text-white px-6 py-3 rounded transition-colors duration-200 font-medium;
+    background-color: var(--primary-color, #213C51);
+    @apply hover:opacity-90 text-white px-6 py-3 rounded transition-colors duration-200 font-medium;
   }
   
   .btn-secondary {
-    @apply border border-gray-300 text-gray-700 hover:bg-gray-50 px-6 py-3 rounded transition-colors duration-200 font-medium;
+    @apply border px-6 py-3 rounded transition-colors duration-200 font-medium;
+    border-color: var(--border-color, #DDAED3);
+    color: var(--text-color, #213C51);
+    background-color: transparent;
+  }
+  
+  .btn-secondary:hover {
+    background-color: var(--hover-color, rgba(101, 148, 177, 0.1));
   }
   
   .section-title {
-    @apply text-3xl md:text-4xl font-bold text-gray-900 mb-4;
+    @apply text-3xl md:text-4xl font-bold mb-4;
+    color: var(--text-color, #213C51);
+    font-family: var(--font-family, 'Inter, sans-serif');
   }
   
   .section-subtitle {
-    @apply text-lg text-gray-600 max-w-3xl mx-auto mb-12;
+    @apply text-lg max-w-3xl mx-auto mb-12;
+    color: var(--text-secondary, #6594B1);
+    font-family: var(--font-family, 'Inter, sans-serif');
+  }
+  
+  /* Primary button styling with fallback */
+  .button-primary {
+    background-color: var(--primary-color, #213C51);
+    @apply text-white hover:opacity-90 font-medium transition-colors duration-200;
+  }
+  
+  /* Primary background styling with fallback */
+  .bg-primary {
+    background-color: var(--primary-color, #213C51);
+    @apply text-white;
+  }
+  
+  /* Secondary background styling */
+  .bg-secondary {
+    background-color: var(--secondary-color, #6594B1);
+    @apply text-white;
+  }
+  
+  /* Accent background styling */
+  .bg-accent {
+    background-color: var(--accent-color, #DDAED3);
+    color: var(--text-color, #213C51);
+  }
+  
+  /* Background styling */
+  .bg-theme {
+    background-color: var(--background-color, #EEEEEE);
+    color: var(--text-color, #213C51);
   }
 }

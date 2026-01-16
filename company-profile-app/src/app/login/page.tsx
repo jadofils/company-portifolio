@@ -5,6 +5,7 @@ import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import { useTheme } from '@/hooks/useTheme'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -14,6 +15,8 @@ export default function LoginPage() {
     password: ''
   })
   const [errors, setErrors] = useState<{[key: string]: string}>({})
+  const { getThemeClasses } = useTheme()
+  const themeClasses = getThemeClasses
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,25 +63,25 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen ${themeClasses.background}`}>
       <Navbar />
       
-      <section className="py-20 bg-white mt-16">
+      <section className={`${themeClasses.spacing} mt-16`}>
         <div className="container-max section-padding">
           <div className="text-center mb-16">
-            <h2 className="section-title">
+            <h2 className={`section-title ${themeClasses.textPrimary}`}>
               Admin Login
             </h2>
-            <p className="section-subtitle">
+            <p className={`section-subtitle ${themeClasses.textSecondary}`}>
               Sign in to access the portfolio management system.
             </p>
           </div>
 
           <div className="max-w-md mx-auto">
-            <div className="bg-white border border-gray-200 rounded p-8">
+            <div className={`${themeClasses.card} ${themeClasses.radius} p-8`}>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="email" className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>
                     Email Address
                   </label>
                   <input
@@ -87,8 +90,8 @@ export default function LoginPage() {
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
-                      errors.email ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.email ? 'border-red-500' : ''
                     }`}
                     placeholder="admin@mineralsco.com"
                     autoComplete="off"
@@ -98,7 +101,7 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="password" className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>
                     Password
                   </label>
                   <div className="relative">
@@ -108,7 +111,7 @@ export default function LoginPage() {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                      className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                       placeholder="Enter your password"
                       autoComplete="new-password"
                       required
@@ -135,13 +138,13 @@ export default function LoginPage() {
                       type="checkbox"
                       className="h-4 w-4 text-gray-600 border-gray-300 rounded"
                     />
-                    <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                    <label htmlFor="remember-me" className={`ml-2 block text-sm ${themeClasses.textSecondary}`}>
                       Remember me
                     </label>
                   </div>
 
                   <div className="text-sm">
-                    <Link href="/forgot-password" className="text-gray-600 hover:text-gray-900">
+                    <Link href="/forgot-password" className={`${themeClasses.textSecondary} hover:text-blue-600`}>
                       Forgot password?
                     </Link>
                   </div>
@@ -150,7 +153,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  className={`w-full ${themeClasses.buttonPrimary} ${themeClasses.radius} px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center`}
                 >
                   {isLoading ? (
                     <>
@@ -170,9 +173,9 @@ export default function LoginPage() {
               </form>
 
               <div className="mt-6 text-center">
-                <p className="text-sm text-gray-600">
+                <p className={`text-sm ${themeClasses.textSecondary}`}>
                   Don't have an account?{' '}
-                  <a href="/#contact" className="text-gray-600 hover:text-gray-900">
+                  <a href="/#contact" className={`${themeClasses.textSecondary} hover:text-blue-600`}>
                     Contact Administrator
                   </a>
                 </p>

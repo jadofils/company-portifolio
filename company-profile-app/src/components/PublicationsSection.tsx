@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Calendar, FileText, Ticket, X } from 'lucide-react'
 import { sql } from '@/lib/database-vercel'
+import { useTheme } from '@/hooks/useTheme'
 
 interface Publication {
   id: number
@@ -19,6 +20,8 @@ const PublicationsSection = () => {
   const [selectedPublication, setSelectedPublication] = useState<Publication | null>(null)
   const [showContactForm, setShowContactForm] = useState(false)
   const [contactForm, setContactForm] = useState({ name: '', email: '', company: '', message: '' })
+  const { getThemeClasses } = useTheme()
+  const themeClasses = getThemeClasses
 
   // Load publications from database
   useEffect(() => {
@@ -80,7 +83,7 @@ const PublicationsSection = () => {
   }
 
   return (
-    <section id="publications" className="py-20 bg-white">
+    <section id="publications" className={`${themeClasses.spacing} ${themeClasses.background}`}>
       <div className="container-max section-padding">
         {/* Header */}
         <div className="text-center mb-16">

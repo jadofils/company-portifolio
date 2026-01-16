@@ -3,9 +3,12 @@
 import { Mail, Phone, MapPin, Send } from 'lucide-react'
 import { useState } from 'react'
 import { useSettings } from '@/hooks/useSettings'
+import { useTheme } from '@/hooks/useTheme'
 
 const ContactSection = () => {
   const { settings } = useSettings()
+  const { getThemeClasses } = useTheme()
+  const themeClasses = getThemeClasses
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -49,7 +52,7 @@ const ContactSection = () => {
   }
 
   return (
-    <section id="contact" className="py-20 bg-white">
+    <section id="contact" className={`${themeClasses.spacing} ${themeClasses.background}`}>
       <div className="container-max section-padding">
         <div className="text-center mb-16">
           <h2 className="section-title">
@@ -100,7 +103,7 @@ const ContactSection = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-secondary-700 mb-2">
+                  <label htmlFor="name" className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>
                     Full Name
                   </label>
                   <input
@@ -109,12 +112,12 @@ const ContactSection = () => {
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className={`w-full px-4 py-3 ${themeClasses.input} ${themeClasses.radius} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                     required
                   />
                 </div>
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-secondary-700 mb-2">
+                  <label htmlFor="email" className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>
                     Email Address
                   </label>
                   <input
@@ -123,14 +126,14 @@ const ContactSection = () => {
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className={`w-full px-4 py-3 ${themeClasses.input} ${themeClasses.radius} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="company" className="block text-sm font-medium text-secondary-700 mb-2">
+                <label htmlFor="company" className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>
                   Company (Optional)
                 </label>
                 <input
@@ -139,12 +142,12 @@ const ContactSection = () => {
                   name="company"
                   value={formData.company}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 ${themeClasses.input} ${themeClasses.radius} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                 />
               </div>
 
               <div>
-                <label htmlFor="message" className="block text-sm font-medium text-secondary-700 mb-2">
+                <label htmlFor="message" className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>
                   Message
                 </label>
                 <textarea
@@ -153,7 +156,7 @@ const ContactSection = () => {
                   rows={6}
                   value={formData.message}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 ${themeClasses.input} ${themeClasses.radius} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                   required
                 ></textarea>
               </div>
@@ -161,7 +164,7 @@ const ContactSection = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full btn-primary flex items-center justify-center gap-2 text-lg disabled:opacity-50"
+                className={`w-full ${themeClasses.buttonPrimary} ${themeClasses.radius} px-4 py-3 flex items-center justify-center gap-2 text-lg disabled:opacity-50`}
               >
                 {isSubmitting ? 'Sending...' : 'Send Message'} <Send className="h-5 w-5" />
               </button>

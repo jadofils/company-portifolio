@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Upload, Image as ImageIcon, Settings, Save, User, Building, Share2, Lock, ChevronDown, Mail, Trash2, FileText } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import { useTheme } from '@/hooks/useTheme'
+import { validateHexColor, sanitizeColor } from '@/utils/validation'
 
 interface UploadedImage {
   id: number
@@ -28,6 +30,17 @@ interface CompanySettings {
   linkedin_url: string
   instagram_url: string
   youtube_url: string
+  // Theme settings
+  theme_mode: 'light' | 'dark'
+  primary_color: string
+  secondary_color: string
+  accent_color: string
+  background_color: string
+  text_color: string
+  font_size: 'small' | 'medium' | 'large'
+  font_family: string
+  section_spacing: 'compact' | 'normal' | 'spacious'
+  border_radius: 'none' | 'small' | 'medium' | 'large'
 }
 
 interface ContactMessage {
@@ -72,6 +85,8 @@ interface DisplayItem {
 }
 
 export default function AdminDashboard() {
+  const { refreshTheme, getThemeClasses } = useTheme()
+  const themeClasses = getThemeClasses
   const [activeSection, setActiveSection] = useState('images')
   const [activeSettingsTab, setActiveSettingsTab] = useState('company')
   const [selectedSection, setSelectedSection] = useState('hero')
@@ -95,12 +110,6 @@ export default function AdminDashboard() {
   const [contentFilter, setContentFilter] = useState<'all' | 'static' | 'database'>('all')
   const [editingContent, setEditingContent] = useState<ContentItem | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [publicationForm, setPublicationForm] = useState({
-    title: '',
-    description: '',
-    content: '',
-    published_date: new Date().toISOString().split('T')[0]
-  })
   const [publicationMode, setPublicationMode] = useState<'form' | 'pdf'>('form')
   const [settings, setSettings] = useState<CompanySettings>({
     company_name: '',
@@ -113,14 +122,34 @@ export default function AdminDashboard() {
     twitter_url: '',
     linkedin_url: '',
     instagram_url: '',
-    youtube_url: ''
+    youtube_url: '',
+    // Theme defaults
+    theme_mode: 'light',
+    primary_color: '#2563eb',
+    secondary_color: '#64748b',
+    accent_color: '#059669',
+    background_color: '#ffffff',
+    text_color: '#1f2937',
+    font_size: 'medium',
+    font_family: 'Inter, sans-serif',
+    section_spacing: 'normal',
+    border_radius: 'medium'
   })
+  const [logoImages, setLogoImages] = useState<UploadedImage[]>([])
+  const [allImages, setAllImages] = useState<UploadedImage[]>([])
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [logoUploadMode, setLogoUploadMode] = useState<'url' | 'upload'>('url')
+  const [logoInputMode, setLogoInputMode] = useState<'url' | 'upload' | 'select'>('url')
+  const [updatingLogo, setUpdatingLogo] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [errors, setErrors] = useState<{[key: string]: string}>({})
   const [savingSettings, setSavingSettings] = useState(false)
+  const [publicationForm, setPublicationForm] = useState({
+    title: '',
+    description: '',
+    content: '',
+    published_date: new Date().toISOString().split('T')[0]
+  })
 
   const sidebarItems = [
     { id: 'images', label: 'Images', icon: ImageIcon },
@@ -138,6 +167,7 @@ export default function AdminDashboard() {
   const settingsTabs = [
     { id: 'company', label: 'Company Info', icon: Building },
     { id: 'social', label: 'Social Media', icon: Share2 },
+    { id: 'theme', label: 'Theme & Style', icon: Settings },
     { id: 'security', label: 'Security', icon: Lock }
   ]
 
@@ -207,7 +237,7 @@ export default function AdminDashboard() {
         policies: ['environmental-policy', 'safety-standards', 'quality-assurance', 'compliance']
       }
       
-      // Extract unique subsections per section
+      // Extract unique subsections per section from database content
       const subsections: {[key: string]: string[]} = {}
       data.content?.forEach((item: ContentItem) => {
         if (item.subsection) {
@@ -218,16 +248,24 @@ export default function AdminDashboard() {
         }
       })
       
-      // Use defaults if no subsections exist for a section
+      // Merge with defaults - add database subsections to defaults
       Object.keys(defaultSubsections).forEach(section => {
-        if (!subsections[section] || subsections[section].length === 0) {
-          subsections[section] = defaultSubsections[section as keyof typeof defaultSubsections]
+        if (!subsections[section]) {
+          subsections[section] = [...defaultSubsections[section as keyof typeof defaultSubsections]]
+        } else {
+          // Add default subsections that aren't already in database
+          const defaults = defaultSubsections[section as keyof typeof defaultSubsections]
+          defaults.forEach(defaultSub => {
+            if (!subsections[section].includes(defaultSub)) {
+              subsections[section].push(defaultSub)
+            }
+          })
         }
       })
       
       setAvailableSubsections(subsections)
     } catch (error) {
-      console.error('Failed to fetch content:', error)
+      // console.error('Failed to fetch content:', error)
     }
   }
 
@@ -235,11 +273,26 @@ export default function AdminDashboard() {
     fetchImages()
   }, [selectedSection, selectedSubsection])
 
+  const fetchAllImages = async () => {
+    try {
+      const response = await fetch('/api/images')
+      const data = await response.json()
+      setAllImages(data.images || [])
+      
+      // Filter logo images
+      const logos = (data.images || []).filter((img: UploadedImage) => img.section === 'logo')
+      setLogoImages(logos)
+    } catch (error) {
+      console.error('Failed to fetch all images:', error)
+    }
+  }
+
   useEffect(() => {
     fetchSettings()
     fetchMessages()
     fetchPublications()
     fetchContent()
+    fetchAllImages()
   }, [])
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -271,8 +324,6 @@ export default function AdminDashboard() {
         setTitle('')
         setSelectedSubsection('')
         event.target.value = ''
-        fetchImages()
-        // Trigger content update event for navbar
         window.dispatchEvent(new CustomEvent('contentUpdated'))
         window.location.reload()
       } else {
@@ -311,8 +362,6 @@ export default function AdminDashboard() {
         setTitle('')
         setImageUrl('')
         setSelectedSubsection('')
-        fetchImages()
-        // Trigger content update event for navbar
         window.dispatchEvent(new CustomEvent('contentUpdated'))
         window.location.reload()
       } else {
@@ -326,43 +375,75 @@ export default function AdminDashboard() {
   }
 
   const handleSettingsUpdate = async () => {
-    console.log('Starting settings update...')
-    console.log('Current settings:', settings)
+    // console.log('Starting settings update...')
+    // console.log('Current settings:', settings)
     
-    if (!validateCompanySettings()) {
-      console.log('Validation failed')
+    if (!validateCompanyInfo()) {
+      // console.log('Validation failed')
       return
     }
     
     setSavingSettings(true)
     try {
-      console.log('Sending PUT request to /api/settings')
+      // console.log('Sending PUT request to /api/settings')
       const response = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
       })
 
-      console.log('Response status:', response.status)
+      // console.log('Response status:', response.status)
       const result = await response.json()
-      console.log('Response result:', result)
+      // console.log('Response result:', result)
       
       if (result.success) {
-        alert('Settings updated successfully! The system will refresh to apply changes.')
-        // Force refresh to apply all changes across the system
-        window.location.reload()
+        // Refresh theme immediately for theme settings
+        if (activeSettingsTab === 'theme') {
+          await refreshTheme()
+          // Dispatch event to refresh theme across all components
+          window.dispatchEvent(new CustomEvent('themeUpdated'))
+        }
+        alert('Settings updated successfully!')
+        // Only refresh page for non-theme settings to avoid losing theme changes
+        if (activeSettingsTab !== 'theme') {
+          window.location.reload()
+        }
       } else {
         alert('Update failed: ' + result.error)
       }
     } catch (error) {
-      console.error('Settings update error:', error)
+      // console.error('Settings update error:', error)
       alert('Update failed: Network error')
     } finally {
       setSavingSettings(false)
     }
   }
 
+  const nonLogoImages = useMemo(() => 
+    allImages.filter(img => img.section !== 'logo'), [allImages])
+
+  const themePreviewStyle = useMemo(() => ({
+    backgroundColor: settings?.theme_mode === 'dark' ? '#1f2937' : sanitizeColor(settings?.background_color || '#ffffff'),
+    color: settings?.theme_mode === 'dark' ? '#f9fafb' : sanitizeColor(settings?.text_color || '#0f172a'),
+    fontFamily: settings?.font_family || 'Inter, sans-serif',
+    fontSize: settings?.font_size === 'small' ? '14px' : settings?.font_size === 'large' ? '18px' : '16px',
+    borderRadius: settings?.border_radius === 'none' ? '0' : settings?.border_radius === 'small' ? '4px' : settings?.border_radius === 'large' ? '12px' : '8px'
+  }), [settings])
+
   const validateCompanySettings = () => {
+    const newErrors: {[key: string]: string} = {}
+    
+    if (!validateHexColor(settings.primary_color)) newErrors.primary_color = 'Invalid hex color format'
+    if (!validateHexColor(settings.secondary_color)) newErrors.secondary_color = 'Invalid hex color format'
+    if (!validateHexColor(settings.accent_color)) newErrors.accent_color = 'Invalid hex color format'
+    if (!validateHexColor(settings.background_color)) newErrors.background_color = 'Invalid hex color format'
+    if (!validateHexColor(settings.text_color)) newErrors.text_color = 'Invalid hex color format'
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const validateCompanyInfo = () => {
     const newErrors: {[key: string]: string} = {}
     
     if (!settings.company_name.trim()) newErrors.company_name = 'Company name is required'
@@ -430,6 +511,37 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Password update error:', error)
       alert('Password update failed')
+    }
+  }
+
+  const handleLogoUpdate = async () => {
+    if (!settings?.company_logo) {
+      alert('Please select or enter a logo first')
+      return
+    }
+
+    setUpdatingLogo(true)
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        alert('Logo updated successfully!')
+        window.dispatchEvent(new CustomEvent('contentUpdated'))
+        // Refresh the page to show updated logo
+        window.location.reload()
+      } else {
+        alert('Logo update failed: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Logo update error:', error)
+      alert('Logo update failed')
+    } finally {
+      setUpdatingLogo(false)
     }
   }
 
@@ -629,7 +741,7 @@ export default function AdminDashboard() {
         ? JSON.stringify({ ...contentForm, id: editingContent?.id })
         : JSON.stringify(contentForm)
 
-      console.log('Submitting content:', { method, body, isEditing })
+      // console.log('Submitting content:', { method, body, isEditing })
 
       const response = await fetch('/api/content', {
         method,
@@ -638,22 +750,26 @@ export default function AdminDashboard() {
       })
 
       const result = await response.json()
-      console.log('Content submission result:', result)
+      // console.log('Content submission result:', result)
       
       if (result.success) {
         alert(isEditing ? 'Content updated successfully!' : 'Content saved successfully!')
         setContentForm({ section: 'about', subsection: '', title: '', content: '', image_url: '' })
         setIsEditing(false)
         setEditingContent(null)
-        fetchContent()
-        // Trigger content update event for navbar
+        await fetchContent()
+        // Trigger content update event for navbar and components
         window.dispatchEvent(new CustomEvent('contentUpdated'))
+        // Force refresh of the page to ensure all UI updates
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
       } else {
-        console.error('Content save failed:', result)
+        // console.error('Content save failed:', result)
         alert('Failed to save content: ' + (result.error || 'Unknown error'))
       }
     } catch (error) {
-      console.error('Content error:', error)
+      // console.error('Content error:', error)
       alert('Failed to save content: Network error')
     }
     setUploading(false)
@@ -680,7 +796,7 @@ export default function AdminDashboard() {
   const deleteContent = async (id: number) => {
     if (!confirm('Are you sure you want to delete this content?')) return
     
-    console.log('Deleting content with ID:', id)
+    // console.log('Deleting content with ID:', id)
     
     try {
       const response = await fetch('/api/content', {
@@ -690,30 +806,30 @@ export default function AdminDashboard() {
       })
 
       const result = await response.json()
-      console.log('Delete result:', result)
+      // console.log('Delete result:', result)
       
       if (result.success) {
         alert('Content deleted successfully!')
         fetchContent()
       } else {
-        console.error('Delete failed:', result)
+        // console.error('Delete failed:', result)
         alert('Failed to delete content: ' + (result.error || 'Unknown error'))
       }
     } catch (error) {
-      console.error('Delete error:', error)
+      // console.error('Delete error:', error)
       alert('Failed to delete content: Network error')
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${themeClasses.background}`}>
       <Navbar />
       
       <div className="flex mt-16">
         {/* Sidebar */}
-        <div className="w-64 bg-white border-r border-gray-200 min-h-screen">
+        <div className={`w-64 ${themeClasses.card} border-r min-h-screen`}>
           <div className="p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Admin Dashboard</h2>
+            <h2 className={`text-xl font-bold ${themeClasses.textPrimary} mb-6`}>Admin Dashboard</h2>
             <nav className="space-y-2">
               {sidebarItems.map((item) => {
                 const Icon = item.icon
@@ -721,10 +837,10 @@ export default function AdminDashboard() {
                   <button
                     key={item.id}
                     onClick={() => setActiveSection(item.id)}
-                    className={`w-full flex items-center px-3 py-2 text-left rounded transition-colors ${
+                    className={`w-full flex items-center px-3 py-2 text-left ${themeClasses.radius} transition-colors ${
                       activeSection === item.id
-                        ? 'bg-blue-100 text-blue-900 font-medium'
-                        : 'text-gray-600 hover:bg-gray-100'
+                        ? `bg-primary text-white font-medium`
+                        : `${themeClasses.textSecondary} ${themeClasses.button}`
                     }`}
                   >
                     <Icon className="h-5 w-5 mr-3" />
@@ -735,10 +851,10 @@ export default function AdminDashboard() {
             </nav>
             
             {/* Logout Button */}
-            <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className={`mt-8 pt-6 border-t ${themeClasses.formBorder}`}>
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center px-3 py-2 text-left rounded transition-colors text-red-600 hover:bg-red-50"
+                className={`w-full flex items-center px-3 py-2 text-left ${themeClasses.radius} transition-colors text-red-600 hover:bg-red-50`}
               >
                 <User className="h-5 w-5 mr-3" />
                 Logout
@@ -751,23 +867,23 @@ export default function AdminDashboard() {
         <div className="flex-1 p-8">
 {activeSection === 'images' && (
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Image Management</h3>
+              <h3 className={`text-2xl font-bold ${themeClasses.textPrimary} mb-6`}>Image Management</h3>
               <div className="grid lg:grid-cols-3 gap-8">
                 {/* Upload Form */}
                 <div className="lg:col-span-1">
-                  <div className="bg-white border border-gray-200 rounded p-6">
-                    <h4 className="text-lg font-bold mb-4">Upload Image</h4>
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
+                    <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Upload Image</h4>
                     
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Section</label>
                         <select 
                           value={selectedSection} 
                           onChange={(e) => {
                             setSelectedSection(e.target.value)
                             setSelectedSubsection('')
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                         >
                           {sections.map(section => (
                             <option key={section.value} value={section.value}>{section.label}</option>
@@ -776,11 +892,11 @@ export default function AdminDashboard() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Subsection</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Subsection</label>
                         <select 
                           value={selectedSubsection} 
                           onChange={(e) => setSelectedSubsection(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                         >
                           <option value="">Select subsection...</option>
                           {/* Static predefined subsections */}
@@ -797,24 +913,24 @@ export default function AdminDashboard() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Title (Optional)</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Title (Optional)</label>
                         <input 
                           type="text" 
                           value={title} 
                           onChange={(e) => setTitle(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           placeholder="Image title"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Upload Method</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Upload Method</label>
                         <div className="flex space-x-2 mb-3">
                           <button
                             type="button"
                             onClick={() => setUploadMode('file')}
-                            className={`px-3 py-1 text-xs rounded ${
-                              uploadMode === 'file' ? 'bg-blue-100 text-blue-900' : 'bg-gray-100 text-gray-600'
+                            className={`px-3 py-1 text-xs ${themeClasses.radius} ${
+                              uploadMode === 'file' ? `${themeClasses.primaryBg} text-white` : `${themeClasses.button}`
                             }`}
                           >
                             File Upload
@@ -822,8 +938,8 @@ export default function AdminDashboard() {
                           <button
                             type="button"
                             onClick={() => setUploadMode('url')}
-                            className={`px-3 py-1 text-xs rounded ${
-                              uploadMode === 'url' ? 'bg-blue-100 text-blue-900' : 'bg-gray-100 text-gray-600'
+                            className={`px-3 py-1 text-xs ${themeClasses.radius} ${
+                              uploadMode === 'url' ? `${themeClasses.primaryBg} text-white` : `${themeClasses.button}`
                             }`}
                           >
                             Image URL
@@ -836,7 +952,7 @@ export default function AdminDashboard() {
                             accept="image/*" 
                             onChange={handleFileUpload}
                             disabled={uploading}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           />
                         ) : (
                           <div className="space-y-3">
@@ -844,14 +960,14 @@ export default function AdminDashboard() {
                               type="url" 
                               value={imageUrl}
                               onChange={(e) => setImageUrl(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                              className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                               placeholder="https://example.com/image.jpg"
                             />
                             <button
                               type="button"
                               onClick={handleUrlSubmit}
                               disabled={uploading || !imageUrl}
-                              className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                              className={`w-full px-4 py-2 ${themeClasses.buttonPrimary} ${themeClasses.radius} disabled:opacity-50`}
                             >
                               Save Image URL
                             </button>
@@ -873,8 +989,8 @@ export default function AdminDashboard() {
 
                 {/* Images Gallery */}
                 <div className="lg:col-span-2">
-                  <div className="bg-white border border-gray-200 rounded p-6">
-                    <h4 className="text-lg font-bold mb-4">Uploaded Images</h4>
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
+                    <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Uploaded Images</h4>
                     
                     {images.length === 0 ? (
                       <div className="text-center py-8">
@@ -919,17 +1035,17 @@ export default function AdminDashboard() {
 
           {activeSection === 'content' && (
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Content Management</h3>
+              <h3 className={`text-2xl font-bold ${themeClasses.textPrimary} mb-6`}>Content Management</h3>
               <div className="grid lg:grid-cols-2 gap-8">
                 {/* Content Form */}
                 <div>
-                  <div className="bg-white border border-gray-200 rounded p-6 mb-6">
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6 mb-6`}>
                     <div className="flex justify-between items-center mb-4">
-                      <h4 className="text-lg font-bold">{isEditing ? 'Edit Content' : 'Add/Edit Content'}</h4>
+                      <h4 className={`text-lg font-bold ${themeClasses.textPrimary}`}>{isEditing ? 'Edit Content' : 'Add/Edit Content'}</h4>
                       {isEditing && (
                         <button
                           onClick={cancelEdit}
-                          className="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+                          className={`px-3 py-1 text-sm ${themeClasses.button} ${themeClasses.radius} hover:opacity-80`}
                         >
                           Cancel Edit
                         </button>
@@ -989,11 +1105,11 @@ export default function AdminDashboard() {
                     
                     <form onSubmit={handleContentSubmit} className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Section</label>
                         <select
                           value={contentForm.section}
                           onChange={(e) => setContentForm({...contentForm, section: e.target.value, subsection: ''})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                         >
                           <option value="about">About Us</option>
                           <option value="services">Services</option>
@@ -1003,12 +1119,12 @@ export default function AdminDashboard() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Subsection</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Subsection</label>
                         <div className="space-y-2">
                           <select
                             value={contentForm.subsection}
                             onChange={(e) => setContentForm({...contentForm, subsection: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           >
                             <option value="">Select existing subsection...</option>
                             {availableSubsections[contentForm.section]?.map(sub => (
@@ -1019,41 +1135,41 @@ export default function AdminDashboard() {
                             type="text"
                             value={contentForm.subsection}
                             onChange={(e) => setContentForm({...contentForm, subsection: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                             placeholder="Or create new subsection..."
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Title</label>
                         <input
                           type="text"
                           value={contentForm.title}
                           onChange={(e) => setContentForm({...contentForm, title: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Content</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Content</label>
                         <textarea
                           value={contentForm.content}
                           onChange={(e) => setContentForm({...contentForm, content: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           rows={8}
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Image URL (Optional)</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Image URL (Optional)</label>
                         <input
                           type="url"
                           value={contentForm.image_url}
                           onChange={(e) => setContentForm({...contentForm, image_url: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           placeholder="https://example.com/image.jpg"
                         />
                       </div>
@@ -1061,7 +1177,7 @@ export default function AdminDashboard() {
                       <button
                         type="submit"
                         disabled={uploading}
-                        className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                        className={`w-full px-4 py-2 ${themeClasses.buttonPrimary} ${themeClasses.radius} disabled:opacity-50`}
                       >
                         {uploading ? 'Saving...' : (isEditing ? 'Update Content' : 'Save Content')}
                       </button>
@@ -1071,14 +1187,14 @@ export default function AdminDashboard() {
 
                 {/* Content List */}
                 <div>
-                  <div className="bg-white border border-gray-200 rounded p-6">
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
                     <div className="flex justify-between items-center mb-4">
-                      <h4 className="text-lg font-bold">Existing Content</h4>
+                      <h4 className={`text-lg font-bold ${themeClasses.textPrimary}`}>Existing Content</h4>
                       <div className="flex space-x-2">
                         <select
                           value={contentForm.section}
                           onChange={(e) => setContentForm({...contentForm, section: e.target.value})}
-                          className="px-3 py-1 border border-gray-300 rounded text-sm"
+                          className={`px-3 py-1 ${themeClasses.input} ${themeClasses.radius} text-sm`}
                         >
                           <option value="about">About Us</option>
                           <option value="services">Services</option>
@@ -1088,7 +1204,7 @@ export default function AdminDashboard() {
                         <select
                           value={contentFilter}
                           onChange={(e) => setContentFilter(e.target.value as 'all' | 'static' | 'database')}
-                          className="px-3 py-1 border border-gray-300 rounded text-sm"
+                          className={`px-3 py-1 ${themeClasses.input} ${themeClasses.radius} text-sm`}
                         >
                           <option value="all">All Content</option>
                           <option value="static">Static Only</option>
@@ -1214,19 +1330,19 @@ export default function AdminDashboard() {
 
           {activeSection === 'publications' && (
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Publications Management</h3>
+              <h3 className={`text-2xl font-bold ${themeClasses.textPrimary} mb-6`}>Publications Management</h3>
               <div className="grid lg:grid-cols-2 gap-8">
                 {/* Create Publication Form */}
                 <div>
-                  <div className="bg-white border border-gray-200 rounded p-6 mb-6">
-                    <h4 className="text-lg font-bold mb-4">Create Publication</h4>
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6 mb-6`}>
+                    <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Create Publication</h4>
                     
                     <div className="flex space-x-2 mb-4">
                       <button
                         type="button"
                         onClick={() => setPublicationMode('form')}
-                        className={`px-3 py-1 text-xs rounded ${
-                          publicationMode === 'form' ? 'bg-blue-100 text-blue-900' : 'bg-gray-100 text-gray-600'
+                        className={`px-3 py-1 text-xs ${themeClasses.radius} ${
+                          publicationMode === 'form' ? `${themeClasses.primaryBg} text-white` : `${themeClasses.button}`
                         }`}
                       >
                         Text Content
@@ -1234,8 +1350,8 @@ export default function AdminDashboard() {
                       <button
                         type="button"
                         onClick={() => setPublicationMode('pdf')}
-                        className={`px-3 py-1 text-xs rounded ${
-                          publicationMode === 'pdf' ? 'bg-blue-100 text-blue-900' : 'bg-gray-100 text-gray-600'
+                        className={`px-3 py-1 text-xs ${themeClasses.radius} ${
+                          publicationMode === 'pdf' ? `${themeClasses.primaryBg} text-white` : `${themeClasses.button}`
                         }`}
                       >
                         PDF Upload
@@ -1244,62 +1360,62 @@ export default function AdminDashboard() {
 
                     <form onSubmit={handlePublicationSubmit} className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Title</label>
                         <input
                           type="text"
                           value={publicationForm.title}
                           onChange={(e) => setPublicationForm({...publicationForm, title: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Description</label>
                         <textarea
                           value={publicationForm.description}
                           onChange={(e) => setPublicationForm({...publicationForm, description: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           rows={3}
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Published Date</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Published Date</label>
                         <input
                           type="date"
                           value={publicationForm.published_date}
                           onChange={(e) => setPublicationForm({...publicationForm, published_date: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                         />
                       </div>
 
                       {publicationMode === 'form' ? (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Content</label>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Content</label>
                           <textarea
                             value={publicationForm.content}
                             onChange={(e) => setPublicationForm({...publicationForm, content: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                             rows={8}
                           />
                           <button
                             type="submit"
                             disabled={uploading}
-                            className="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                            className={`w-full mt-4 px-4 py-2 ${themeClasses.buttonPrimary} ${themeClasses.radius} disabled:opacity-50`}
                           >
                             {uploading ? 'Creating...' : 'Create Publication'}
                           </button>
                         </div>
                       ) : (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">PDF File</label>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>PDF File</label>
                           <input
                             type="file"
                             accept=".pdf"
                             onChange={handlePdfUpload}
                             disabled={uploading}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           />
                         </div>
                       )}
@@ -1309,8 +1425,8 @@ export default function AdminDashboard() {
 
                 {/* Publications List */}
                 <div>
-                  <div className="bg-white border border-gray-200 rounded p-6">
-                    <h4 className="text-lg font-bold mb-4">Published Content</h4>
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
+                    <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Published Content</h4>
                     
                     {publications.length === 0 ? (
                       <div className="text-center py-8">
@@ -1357,8 +1473,8 @@ export default function AdminDashboard() {
 
           {activeSection === 'messages' && (
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Contact Messages</h3>
-              <div className="bg-white border border-gray-200 rounded p-6">
+              <h3 className={`text-2xl font-bold ${themeClasses.textPrimary} mb-6`}>Contact Messages</h3>
+              <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
                 {messages.length === 0 ? (
                   <div className="text-center py-8">
                     <Mail className="h-8 w-8 mx-auto text-gray-400 mb-2" />
@@ -1412,14 +1528,14 @@ export default function AdminDashboard() {
           {activeSection === 'settings' && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Settings</h3>
+              <h3 className={`text-2xl font-bold ${themeClasses.textPrimary} mb-6`}>Settings</h3>
                 
                 {/* Settings Tabs Dropdown */}
                 <div className="relative">
                   <select
                     value={activeSettingsTab}
                     onChange={(e) => setActiveSettingsTab(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500 bg-white"
+                    className={`px-4 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   >
                     {settingsTabs.map(tab => (
                       <option key={tab.id} value={tab.id}>{tab.label}</option>
@@ -1429,218 +1545,290 @@ export default function AdminDashboard() {
               </div>
 
               {/* Settings Content */}
-              <div className="bg-white border border-gray-200 rounded p-6">
+              <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
                 {activeSettingsTab === 'company' && (
                   <div>
-                    <h4 className="text-lg font-bold mb-4">Company Information</h4>
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
-                          <input 
-                            type="text" 
-                            value={settings?.company_name ?? ''}
-                            onChange={(e) => setSettings({...(settings ?? {}), company_name: e.target.value})}
-                            className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
-                              errors.company_name ? 'border-red-500' : 'border-gray-300'
+                    <h4 className="text-lg font-bold mb-6">Company Information</h4>
+                    
+                    {/* Logo Management Section - Separate */}
+                    <div className="bg-gray-50 border border-gray-200 rounded p-4 mb-6">
+                      <h5 className="text-md font-semibold text-gray-900 mb-4">Company Logo</h5>
+                      <div className="space-y-3">
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setLogoInputMode('url')}
+                            className={`px-3 py-1 text-xs ${themeClasses.radius} ${
+                              logoInputMode === 'url' ? `${themeClasses.primaryBg} text-white` : `${themeClasses.button}`
                             }`}
-                          />
-                          {errors.company_name && <p className="text-red-500 text-xs mt-1">{errors.company_name}</p>}
+                          >
+                            URL
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setLogoInputMode('upload')}
+                            className={`px-3 py-1 text-xs ${themeClasses.radius} ${
+                              logoInputMode === 'upload' ? `${themeClasses.primaryBg} text-white` : `${themeClasses.button}`
+                            }`}
+                          >
+                            Upload New
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setLogoInputMode('select')}
+                            className={`px-3 py-1 text-xs ${themeClasses.radius} ${
+                              logoInputMode === 'select' ? `${themeClasses.primaryBg} text-white` : `${themeClasses.button}`
+                            }`}
+                          >
+                            Select Existing
+                          </button>
                         </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Company Logo</label>
-                          <div className="space-y-3">
-                            <div className="flex space-x-2">
-                              <button
-                                type="button"
-                                onClick={() => setLogoUploadMode('url')}
-                                className={`px-3 py-1 text-xs rounded ${
-                                  logoUploadMode === 'url' ? 'bg-blue-100 text-blue-900' : 'bg-gray-100 text-gray-600'
-                                }`}
-                              >
-                                URL
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setLogoUploadMode('upload')}
-                                className={`px-3 py-1 text-xs rounded ${
-                                  logoUploadMode === 'upload' ? 'bg-blue-100 text-blue-900' : 'bg-gray-100 text-gray-600'
-                                }`}
-                              >
-                                Upload
-                              </button>
-                            </div>
-                            
-                            {logoUploadMode === 'url' ? (
-                              <div className="space-y-2">
-                                <input 
-                                  type="text" 
-                                  value={settings?.company_logo ?? ''}
-                                  onChange={(e) => setSettings({...(settings ?? {}), company_logo: e.target.value})}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                                  placeholder="/logo.png or https://example.com/logo.png"
-                                />
-                                <p className="text-xs text-gray-500">Enter a URL or relative path to your logo image. Changes will be saved when you click "Save Company Settings" below.</p>
-                              </div>
-                            ) : (
-                              <div>
-                                <input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  onChange={handleLogoUpload}
-                                  disabled={uploadingLogo}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                                />
-                                {uploadingLogo && (
-                                  <div className="text-center py-2">
-                                    <div className="inline-flex items-center text-sm text-gray-600">
-                                      <Upload className="animate-spin h-4 w-4 mr-2" />
-                                      Uploading logo...
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            
-                            {settings?.company_logo && (
-                              <div className="mt-2">
-                                <img 
-                                  src={settings.company_logo} 
-                                  alt="Company Logo Preview" 
-                                  className="h-12 w-auto border border-gray-200 rounded"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none'
-                                  }}
-                                />
+                        
+                        {logoInputMode === 'url' ? (
+                          <div className="space-y-2">
+                            <input 
+                              type="text" 
+                              value={settings?.company_logo ?? ''}
+                              onChange={(e) => setSettings({...(settings ?? {}), company_logo: e.target.value})}
+                              className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                              placeholder="/logo.png or https://example.com/logo.png"
+                            />
+                          </div>
+                        ) : logoInputMode === 'upload' ? (
+                          <div>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={handleLogoUpload}
+                              disabled={uploadingLogo}
+                              className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                            />
+                            {uploadingLogo && (
+                              <div className="text-center py-2">
+                                <div className="inline-flex items-center text-sm text-gray-600">
+                                  <Upload className="animate-spin h-4 w-4 mr-2" />
+                                  Uploading logo...
+                                </div>
                               </div>
                             )}
                           </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-                          <input 
-                            type="text" 
-                            value={settings?.company_phone ?? ''}
-                            onChange={(e) => setSettings({...(settings ?? {}), company_phone: e.target.value})}
-                            className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
-                              errors.company_phone ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                          />
-                          {errors.company_phone && <p className="text-red-500 text-xs mt-1">{errors.company_phone}</p>}
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                          <input 
-                            type="email" 
-                            value={settings?.company_email ?? ''}
-                            onChange={(e) => setSettings({...(settings ?? {}), company_email: e.target.value})}
-                            className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
-                              errors.company_email ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                          />
-                          {errors.company_email && <p className="text-red-500 text-xs mt-1">{errors.company_email}</p>}
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-                          <textarea 
-                            value={settings?.company_address ?? ''}
-                            onChange={(e) => setSettings({...(settings ?? {}), company_address: e.target.value})}
-                            className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
-                              errors.company_address ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                            rows={3}
-                          />
-                          {errors.company_address && <p className="text-red-500 text-xs mt-1">{errors.company_address}</p>}
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Footer Description</label>
-                          <textarea 
-                            value={settings?.footer_description ?? ''}
-                            onChange={(e) => setSettings({...(settings ?? {}), footer_description: e.target.value})}
-                            className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-gray-500 ${
-                              errors.footer_description ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                            rows={4}
-                          />
-                          {errors.footer_description && <p className="text-red-500 text-xs mt-1">{errors.footer_description}</p>}
-                        </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto border border-gray-200 rounded p-3">
+                              {logoImages.length > 0 && (
+                                <div className="col-span-full">
+                                  <h6 className="text-sm font-medium text-gray-700 mb-2">Logo Images</h6>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                    {logoImages.map((img) => (
+                                      <div
+                                        key={img.id}
+                                        onClick={() => setSettings({...(settings ?? {}), company_logo: img.file_path})}
+                                        className={`cursor-pointer border-2 rounded p-2 transition-colors ${
+                                          settings?.company_logo === img.file_path ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                      >
+                                        <img src={img.file_path} alt={img.title || img.original_name} className="w-full h-16 object-cover rounded mb-1" />
+                                        <p className="text-xs text-center truncate">{img.title || img.original_name}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {nonLogoImages.length > 0 && (
+                                <div className="col-span-full">
+                                  <h6 className="text-sm font-medium text-gray-700 mb-2 mt-4">Other Images</h6>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                    {nonLogoImages.map((img) => (
+                                      <div
+                                        key={img.id}
+                                        onClick={() => setSettings({...(settings ?? {}), company_logo: img.file_path})}
+                                        className={`cursor-pointer border-2 rounded p-2 transition-colors ${
+                                          settings?.company_logo === img.file_path ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                      >
+                                        <img src={img.file_path} alt={img.title || img.original_name} className="w-full h-16 object-cover rounded mb-1" />
+                                        <p className="text-xs text-center truncate">{img.title || img.original_name}</p>
+                                        <p className="text-xs text-center text-gray-500">{img.section}{img.subsection ? ` • ${img.subsection}` : ''}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {logoImages.length === 0 && nonLogoImages.length === 0 && (
+                                <div className="col-span-full text-center py-4 text-gray-500">
+                                  No images available. Upload some images first.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {settings?.company_logo && (
+                          <div className="mt-2">
+                            <img 
+                              src={settings.company_logo} 
+                              alt="Company Logo Preview" 
+                              className="h-12 w-auto border border-gray-200 rounded"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        <button 
+                          onClick={handleLogoUpdate}
+                          disabled={updatingLogo || !settings?.company_logo}
+                          className={`px-4 py-2 ${themeClasses.buttonPrimary} ${themeClasses.radius} disabled:opacity-50 text-sm flex items-center`}
+                        >
+                          <Save className={`h-4 w-4 mr-2 ${updatingLogo ? 'animate-spin' : ''}`} />
+                          {updatingLogo ? 'Updating Logo...' : 'Update Logo'}
+                        </button>
                       </div>
                     </div>
-                    
-                    <div className="mt-6">
-                      <button 
-                        onClick={handleSettingsUpdate}
-                        disabled={savingSettings}
-                        className="btn-primary flex items-center disabled:opacity-50"
-                      >
-                        <Save className={`h-4 w-4 mr-2 ${savingSettings ? 'animate-spin' : ''}`} />
-                        {savingSettings ? 'Saving...' : 'Save Company Settings'}
-                      </button>
+
+                    {/* Company Information Form - Separate */}
+                    <div className="bg-white border border-gray-200 rounded p-4">
+                      <h5 className="text-md font-semibold text-gray-900 mb-4">Company Details</h5>
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div>
+                            <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Company Name</label>
+                            <input 
+                              type="text" 
+                              value={settings?.company_name ?? ''}
+                              onChange={(e) => setSettings({...(settings ?? {}), company_name: e.target.value})}
+                              className={`w-full px-3 py-2 border ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                errors.company_name ? 'border-red-500' : themeClasses.input
+                              }`}
+                            />
+                            {errors.company_name && <p className="text-red-500 text-xs mt-1">{errors.company_name}</p>}
+                          </div>
+
+                          <div>
+                            <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Phone</label>
+                            <input 
+                              type="text" 
+                              value={settings?.company_phone ?? ''}
+                              onChange={(e) => setSettings({...(settings ?? {}), company_phone: e.target.value})}
+                              className={`w-full px-3 py-2 border ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                errors.company_phone ? 'border-red-500' : themeClasses.input
+                              }`}
+                            />
+                            {errors.company_phone && <p className="text-red-500 text-xs mt-1">{errors.company_phone}</p>}
+                          </div>
+
+                          <div>
+                            <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Email</label>
+                            <input 
+                              type="email" 
+                              value={settings?.company_email ?? ''}
+                              onChange={(e) => setSettings({...(settings ?? {}), company_email: e.target.value})}
+                              className={`w-full px-3 py-2 border ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                errors.company_email ? 'border-red-500' : themeClasses.input
+                              }`}
+                            />
+                            {errors.company_email && <p className="text-red-500 text-xs mt-1">{errors.company_email}</p>}
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Address</label>
+                            <textarea 
+                              value={settings?.company_address ?? ''}
+                              onChange={(e) => setSettings({...(settings ?? {}), company_address: e.target.value})}
+                              className={`w-full px-3 py-2 border ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                errors.company_address ? 'border-red-500' : themeClasses.input
+                              }`}
+                              rows={3}
+                            />
+                            {errors.company_address && <p className="text-red-500 text-xs mt-1">{errors.company_address}</p>}
+                          </div>
+
+                          <div>
+                            <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Footer Description</label>
+                            <textarea 
+                              value={settings?.footer_description ?? ''}
+                              onChange={(e) => setSettings({...(settings ?? {}), footer_description: e.target.value})}
+                              className={`w-full px-3 py-2 border ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                errors.footer_description ? 'border-red-500' : themeClasses.input
+                              }`}
+                              rows={4}
+                            />
+                            {errors.footer_description && <p className="text-red-500 text-xs mt-1">{errors.footer_description}</p>}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-6">
+                        <button 
+                          onClick={handleSettingsUpdate}
+                          disabled={savingSettings}
+                          className={`px-4 py-2 ${themeClasses.buttonPrimary} ${themeClasses.radius} disabled:opacity-50 flex items-center`}
+                        >
+                          <Save className={`h-4 w-4 mr-2 ${savingSettings ? 'animate-spin' : ''}`} />
+                          {savingSettings ? 'Saving...' : 'Save Company Information'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {activeSettingsTab === 'social' && (
                   <div>
-                    <h4 className="text-lg font-bold mb-4">Social Media Links</h4>
+                    <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Social Media Links</h4>
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Facebook URL</label>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Facebook URL</label>
                           <input 
                             type="url" 
                             value={settings?.facebook_url ?? ''}
                             onChange={(e) => setSettings({...(settings ?? {}), facebook_url: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Twitter URL</label>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Twitter URL</label>
                           <input 
                             type="url" 
                             value={settings?.twitter_url ?? ''}
                             onChange={(e) => setSettings({...(settings ?? {}), twitter_url: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn URL</label>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>LinkedIn URL</label>
                           <input 
                             type="url" 
                             value={settings?.linkedin_url ?? ''}
                             onChange={(e) => setSettings({...(settings ?? {}), linkedin_url: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           />
                         </div>
                       </div>
 
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Instagram URL</label>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Instagram URL</label>
                           <input 
                             type="url" 
                             value={settings?.instagram_url ?? ''}
                             onChange={(e) => setSettings({...(settings ?? {}), instagram_url: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">YouTube URL</label>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>YouTube URL</label>
                           <input 
                             type="url" 
                             value={settings?.youtube_url ?? ''}
                             onChange={(e) => setSettings({...(settings ?? {}), youtube_url: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           />
                         </div>
                       </div>
@@ -1654,7 +1842,7 @@ export default function AdminDashboard() {
                           }
                         }}
                         disabled={savingSettings}
-                        className="btn-primary flex items-center disabled:opacity-50"
+                        className={`${themeClasses.buttonPrimary} ${themeClasses.radius} px-4 py-2 flex items-center disabled:opacity-50`}
                       >
                         <Save className={`h-4 w-4 mr-2 ${savingSettings ? 'animate-spin' : ''}`} />
                         {savingSettings ? 'Saving...' : 'Save Social Media Settings'}
@@ -1663,35 +1851,229 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
+                {activeSettingsTab === 'theme' && (
+                  <div>
+                    <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Theme & Style Settings</h4>
+                    
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {/* Theme Mode & Colors */}
+                      <div className="space-y-4">
+                        <h5 className={`font-medium ${themeClasses.textPrimary}`}>Theme & Colors</h5>
+                        
+                        <div>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Theme Mode</label>
+                          <select
+                            value={settings?.theme_mode ?? 'light'}
+                            onChange={(e) => setSettings({...(settings ?? {}), theme_mode: e.target.value as 'light' | 'dark'})}
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                          >
+                            <option value="light">Light Mode</option>
+                            <option value="dark">Dark Mode</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Primary Color</label>
+                          <div className="flex space-x-2">
+                            <input
+                              type="color"
+                              value={settings?.primary_color ?? '#2563eb'}
+                              onChange={(e) => setSettings({...(settings ?? {}), primary_color: e.target.value})}
+                              className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={settings?.primary_color ?? '#1e40af'}
+                              onChange={(e) => {
+                                const color = sanitizeColor(e.target.value)
+                                setSettings({...(settings ?? {}), primary_color: color})
+                              }}
+                              className={`flex-1 px-3 py-2 border ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                errors.primary_color ? 'border-red-500' : themeClasses.input
+                              }`}
+                              placeholder="#1e40af"
+                            />
+                          </div>
+                          {errors.primary_color && <p className="text-red-500 text-xs mt-1">{errors.primary_color}</p>}
+                        </div>
+
+                        <div>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Secondary Color</label>
+                          <div className="flex space-x-2">
+                            <input
+                              type="color"
+                              value={settings?.secondary_color ?? '#64748b'}
+                              onChange={(e) => setSettings({...(settings ?? {}), secondary_color: e.target.value})}
+                              className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={settings?.secondary_color ?? '#475569'}
+                              onChange={(e) => {
+                                const color = sanitizeColor(e.target.value)
+                                setSettings({...(settings ?? {}), secondary_color: color})
+                              }}
+                              className={`flex-1 px-3 py-2 border ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                errors.secondary_color ? 'border-red-500' : themeClasses.input
+                              }`}
+                              placeholder="#475569"
+                            />
+                          </div>
+                          {errors.secondary_color && <p className="text-red-500 text-xs mt-1">{errors.secondary_color}</p>}
+                        </div>
+
+                        <div>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Accent Color</label>
+                          <div className="flex space-x-2">
+                            <input
+                              type="color"
+                              value={settings?.accent_color ?? '#059669'}
+                              onChange={(e) => setSettings({...(settings ?? {}), accent_color: e.target.value})}
+                              className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={settings?.accent_color ?? '#0f766e'}
+                              onChange={(e) => {
+                                const color = sanitizeColor(e.target.value)
+                                setSettings({...(settings ?? {}), accent_color: color})
+                              }}
+                              className={`flex-1 px-3 py-2 border ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                errors.accent_color ? 'border-red-500' : themeClasses.input
+              }`}
+                              placeholder="#0f766e"
+                            />
+                          </div>
+                          {errors.accent_color && <p className="text-red-500 text-xs mt-1">{errors.accent_color}</p>}
+                        </div>
+                      </div>
+
+                      {/* Typography & Layout */}
+                      <div className="space-y-4">
+                        <h5 className={`font-medium ${themeClasses.textPrimary}`}>Typography & Layout</h5>
+                        
+                        <div>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Font Size</label>
+                          <select
+                            value={settings?.font_size ?? 'medium'}
+                            onChange={(e) => setSettings({...(settings ?? {}), font_size: e.target.value as 'small' | 'medium' | 'large'})}
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                          >
+                            <option value="small">Small</option>
+                            <option value="medium">Medium</option>
+                            <option value="large">Large</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Font Family</label>
+                          <select
+                            value={settings?.font_family ?? 'Inter, sans-serif'}
+                            onChange={(e) => setSettings({...(settings ?? {}), font_family: e.target.value})}
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                          >
+                            <option value="Inter, sans-serif">Inter (Default)</option>
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="Helvetica, sans-serif">Helvetica</option>
+                            <option value="Georgia, serif">Georgia</option>
+                            <option value="Times New Roman, serif">Times New Roman</option>
+                            <option value="Roboto, sans-serif">Roboto</option>
+                            <option value="Open Sans, sans-serif">Open Sans</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Section Spacing</label>
+                          <select
+                            value={settings?.section_spacing ?? 'normal'}
+                            onChange={(e) => setSettings({...(settings ?? {}), section_spacing: e.target.value as 'compact' | 'normal' | 'spacious'})}
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                          >
+                            <option value="compact">Compact</option>
+                            <option value="normal">Normal</option>
+                            <option value="spacious">Spacious</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Border Radius</label>
+                          <select
+                            value={settings?.border_radius ?? 'medium'}
+                            onChange={(e) => setSettings({...(settings ?? {}), border_radius: e.target.value as 'none' | 'small' | 'medium' | 'large'})}
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                          >
+                            <option value="none">None (Square)</option>
+                            <option value="small">Small</option>
+                            <option value="medium">Medium</option>
+                            <option value="large">Large</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Theme Preview */}
+                    <div className="mt-6 p-4 border border-gray-200 rounded">
+                      <h5 className={`font-medium ${themeClasses.textPrimary} mb-3`}>Theme Preview</h5>
+                      <div 
+                        className="p-4 rounded transition-all duration-200"
+                        style={themePreviewStyle}
+                      >
+                        <h6 className="font-bold mb-2" style={{ color: sanitizeColor(settings?.primary_color || '#1e40af') }}>Sample Heading</h6>
+                        <p className="mb-2">This is how your content will look with the selected theme settings.</p>
+                        <button 
+                          className="px-4 py-2 rounded text-white transition-colors"
+                          style={{ 
+                            backgroundColor: sanitizeColor(settings?.primary_color || '#1e40af'),
+                            borderRadius: settings?.border_radius === 'none' ? '0' : settings?.border_radius === 'small' ? '4px' : settings?.border_radius === 'large' ? '12px' : '8px'
+                          }}
+                        >
+                          Sample Button
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6">
+                      <button 
+                        onClick={handleSettingsUpdate}
+                        disabled={savingSettings}
+                        className={`${themeClasses.buttonPrimary} ${themeClasses.radius} px-4 py-2 flex items-center disabled:opacity-50`}
+                      >
+                        <Save className={`h-4 w-4 mr-2 ${savingSettings ? 'animate-spin' : ''}`} />
+                        {savingSettings ? 'Saving...' : 'Save Theme Settings'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {activeSettingsTab === 'security' && (
                   <div>
-                    <h4 className="text-lg font-bold mb-4">Change Password</h4>
+                    <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Change Password</h4>
                     <div className="max-w-md space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>New Password</label>
                         <input 
                           type="password" 
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           placeholder="Enter new password"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Confirm Password</label>
                         <input 
                           type="password" 
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           placeholder="Confirm new password"
                         />
                       </div>
 
                       <button 
                         onClick={handlePasswordChange}
-                        className="btn-primary"
+                        className={`${themeClasses.buttonPrimary} ${themeClasses.radius} px-4 py-2`}
                         disabled={!newPassword || !confirmPassword}
                       >
                         Update Password

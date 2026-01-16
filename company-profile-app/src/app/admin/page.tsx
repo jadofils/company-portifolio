@@ -272,6 +272,8 @@ export default function AdminDashboard() {
         setSelectedSubsection('')
         event.target.value = ''
         fetchImages()
+        // Trigger content update event for navbar
+        window.dispatchEvent(new CustomEvent('contentUpdated'))
         window.location.reload()
       } else {
         alert('Upload failed: ' + result.error)
@@ -310,6 +312,8 @@ export default function AdminDashboard() {
         setImageUrl('')
         setSelectedSubsection('')
         fetchImages()
+        // Trigger content update event for navbar
+        window.dispatchEvent(new CustomEvent('contentUpdated'))
         window.location.reload()
       } else {
         alert('Save failed: ' + result.error)
@@ -642,6 +646,8 @@ export default function AdminDashboard() {
         setIsEditing(false)
         setEditingContent(null)
         fetchContent()
+        // Trigger content update event for navbar
+        window.dispatchEvent(new CustomEvent('contentUpdated'))
       } else {
         console.error('Content save failed:', result)
         alert('Failed to save content: ' + (result.error || 'Unknown error'))
@@ -936,10 +942,9 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="mb-6">
-                      <h5 className="font-medium text-gray-900 mb-3">Content Overview by Section</h5>
-                      <div className="grid grid-cols-2 gap-4 text-xs">
+                      <h5 className="font-medium text-gray-900 mb-3">Quick Edit Static Content</h5>
+                      <div className="grid grid-cols-1 gap-2 text-sm">
                         {['about', 'services', 'products', 'policies'].map(section => {
-                          const sectionContent = contentItems.filter(item => item.section === section)
                           const staticItems = {
                             about: ['Corporate Governance', 'Our History', 'Leadership Team', 'Mission & Vision', 'Sustainability'],
                             services: ['Sourcing', 'Testing & Analysis', 'Crushing', 'Tagging', 'Packing', 'Loading', 'Shipping'],
@@ -947,32 +952,34 @@ export default function AdminDashboard() {
                             policies: ['Environmental Policy', 'Safety Standards', 'Quality Assurance', 'Compliance']
                           }[section] || []
                           
+                          const sectionContent = contentItems.filter(item => item.section === section)
                           const dbItems = sectionContent.map(item => item.title)
                           const staticOnly = staticItems.filter(item => !dbItems.includes(item))
-                          const customItems = dbItems.filter(item => !staticItems.includes(item))
                           
                           return (
                             <div key={section} className="border border-gray-200 rounded p-3">
                               <h6 className="font-medium capitalize mb-2">{section}</h6>
                               <div className="space-y-1">
-                                {staticOnly.length > 0 && (
-                                  <div>
-                                    <span className="text-gray-500">Static ({staticOnly.length}):</span>
-                                    <div className="text-gray-400 text-xs">{staticOnly.join(', ')}</div>
-                                  </div>
-                                )}
-                                {dbItems.filter(item => staticItems.includes(item)).length > 0 && (
-                                  <div>
-                                    <span className="text-green-600">Customized ({dbItems.filter(item => staticItems.includes(item)).length}):</span>
-                                    <div className="text-green-500 text-xs">{dbItems.filter(item => staticItems.includes(item)).join(', ')}</div>
-                                  </div>
-                                )}
-                                {customItems.length > 0 && (
-                                  <div>
-                                    <span className="text-blue-600">Custom ({customItems.length}):</span>
-                                    <div className="text-blue-500 text-xs">{customItems.join(', ')}</div>
-                                  </div>
-                                )}
+                                {staticOnly.map(staticTitle => (
+                                  <button
+                                    key={staticTitle}
+                                    onClick={() => {
+                                      const subsectionKey = staticTitle.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+                                      setContentForm({
+                                        section,
+                                        subsection: subsectionKey,
+                                        title: staticTitle,
+                                        content: `Edit the content for ${staticTitle}. This will override the static default content.`,
+                                        image_url: ''
+                                      })
+                                      setIsEditing(false)
+                                      setEditingContent(null)
+                                    }}
+                                    className="text-left text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                  >
+                                    + Edit "{staticTitle}"
+                                  </button>
+                                ))}
                               </div>
                             </div>
                           )
@@ -1130,32 +1137,55 @@ export default function AdminDashboard() {
                       ) : (
                         <div className="space-y-4">
                           {displayItems.map((item, index) => (
-                            <div key={item.isStatic ? `static-${item.title}` : item.id} className="border border-gray-200 rounded p-4 relative group">
+                            <div key={item.isStatic ? `static-${item.title}` : item.id} className={`border rounded p-4 relative group ${
+                              item.isStatic ? 'border-gray-200 bg-gray-50' : 'border-blue-200 bg-blue-50'
+                            }`}>
                               <div className="flex justify-between items-start mb-2">
                                 <div className="flex items-center space-x-2">
                                   <h5 className="font-medium text-gray-900">{item.title}</h5>
                                   <span className={`px-2 py-1 text-xs rounded ${
-                                    item.isStatic ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-600'
+                                    item.isStatic ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'
                                   }`}>
-                                    {item.isStatic ? 'Static' : 'Database'}
+                                    {item.isStatic ? 'Using Static Default' : 'Using Database Content'}
                                   </span>
                                 </div>
-                                {!item.isStatic && 'id' in item && item.id && (
-                                  <div className="flex space-x-2">
+                                <div className="flex space-x-2">
+                                  {item.isStatic && (
                                     <button
-                                      onClick={() => editContent(item as ContentItem)}
-                                      className="px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded hover:bg-blue-200 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={() => {
+                                        const subsectionKey = item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+                                        setContentForm({
+                                          section: contentForm.section,
+                                          subsection: subsectionKey,
+                                          title: item.title,
+                                          content: `Edit the content for ${item.title}. This will override the static default content.`,
+                                          image_url: ''
+                                        })
+                                        setIsEditing(false)
+                                        setEditingContent(null)
+                                      }}
+                                      className="px-2 py-1 text-xs bg-green-100 text-green-600 rounded hover:bg-green-200 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
-                                      Edit
+                                      Override Static
                                     </button>
-                                    <button
-                                      onClick={() => deleteContent(item.id!)}
-                                      className="w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
-                                  </div>
-                                )}
+                                  )}
+                                  {!item.isStatic && 'id' in item && item.id && (
+                                    <>
+                                      <button
+                                        onClick={() => editContent(item as ContentItem)}
+                                        className="px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded hover:bg-blue-200 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={() => deleteContent(item.id!)}
+                                        className="w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-sm text-gray-600 mb-2 line-clamp-3">{item.content}</p>
                               {!item.isStatic && 'section' in item && 'updated_at' in item && item.section && item.updated_at && (
@@ -1443,13 +1473,16 @@ export default function AdminDashboard() {
                             </div>
                             
                             {logoUploadMode === 'url' ? (
-                              <input 
-                                type="text" 
-                                value={settings?.company_logo ?? ''}
-                                onChange={(e) => setSettings({...(settings ?? {}), company_logo: e.target.value})}
-                                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
-                                placeholder="/logo.png or https://example.com/logo.png"
-                              />
+                              <div className="space-y-2">
+                                <input 
+                                  type="text" 
+                                  value={settings?.company_logo ?? ''}
+                                  onChange={(e) => setSettings({...(settings ?? {}), company_logo: e.target.value})}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                                  placeholder="/logo.png or https://example.com/logo.png"
+                                />
+                                <p className="text-xs text-gray-500">Enter a URL or relative path to your logo image. Changes will be saved when you click "Save Company Settings" below.</p>
+                              </div>
                             ) : (
                               <div>
                                 <input 

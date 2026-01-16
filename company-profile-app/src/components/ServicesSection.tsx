@@ -201,6 +201,20 @@ const ServicesSection = () => {
     }
   }, [activeSection])
 
+  // Listen for content updates from admin panel
+  useEffect(() => {
+    const handleContentUpdate = () => {
+      if (activeSection === 'services') {
+        refreshServicesImages()
+      } else {
+        refreshSubsectionImages()
+      }
+    }
+    
+    window.addEventListener('contentUpdated', handleContentUpdate)
+    return () => window.removeEventListener('contentUpdated', handleContentUpdate)
+  }, [activeSection])
+
   const currentImage = getCurrentImage()
 
   return (

@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/database-vercel'
 
-// GET - Fetch all content with caching
-export async function GET() {
+// GET - Fetch content with optional section filtering
+export async function GET(request: NextRequest) {
   try {
-    const { rows: content } = await sql`
-      SELECT * FROM company_content ORDER BY section, subsection, updated_at DESC
-    `
+    const { searchParams } = new URL(request.url)
+    const section = searchParams.get('section')
+    
+    let content
+    if (section) {
+      const { rows } = await sql`
+        SELECT * FROM company_content WHERE section = ${section} ORDER BY subsection, updated_at DESC
+      `
+      content = rows
+    } else {
+      const { rows } = await sql`
+        SELECT * FROM company_content ORDER BY section, subsection, updated_at DESC
+      `
+      content = rows
+    }
 
     return NextResponse.json({ success: true, content })
   } catch (error) {

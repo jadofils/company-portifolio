@@ -78,6 +78,11 @@ const AboutSection = () => {
   const getCurrentContent = (sectionId: string) => {
     // If main about section, return general about info
     if (sectionId === 'about') {
+      // Check if there's database content for main about section
+      const mainAboutContent = aboutContent.find(item => !item.subsection || item.subsection === '')
+      if (mainAboutContent) {
+        return mainAboutContent
+      }
       return {
         title: 'About Us',
         content: 'Welcome to our company. Learn more about our corporate governance, history, leadership team, mission & vision, and sustainability initiatives.',
@@ -85,19 +90,27 @@ const AboutSection = () => {
       }
     }
     
-    // First check if it's dynamic content
+    // First check if it's dynamic content from database
     const dynamicContent = aboutContent.find(item => 
       (item.subsection === sectionId) || 
-      (item.title.toLowerCase().replace(/\s+/g, '-') === sectionId)
+      (item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '') === sectionId)
     )
-    if (dynamicContent) return dynamicContent
+    if (dynamicContent) {
+      console.log(`Using database content for ${sectionId}:`, dynamicContent)
+      return dynamicContent
+    }
     
-    // Otherwise use static content
-    return staticContent[sectionId] ? {
-      title: staticContent[sectionId].title,
-      content: staticContent[sectionId].content,
-      image_url: null
-    } : null
+    // Otherwise use static content as fallback
+    if (staticContent[sectionId]) {
+      console.log(`Using static fallback content for ${sectionId}`)
+      return {
+        title: staticContent[sectionId].title,
+        content: staticContent[sectionId].content,
+        image_url: null
+      }
+    }
+    
+    return null
   }
 
   const currentContent = getCurrentContent(activeSection)
@@ -177,6 +190,20 @@ const AboutSection = () => {
     } else {
       refreshSubsectionImages()
     }
+  }, [activeSection])
+
+  // Listen for content updates from admin panel
+  useEffect(() => {
+    const handleContentUpdate = () => {
+      if (activeSection === 'about') {
+        refreshAboutImages()
+      } else {
+        refreshSubsectionImages()
+      }
+    }
+    
+    window.addEventListener('contentUpdated', handleContentUpdate)
+    return () => window.removeEventListener('contentUpdated', handleContentUpdate)
   }, [activeSection])
 
   const currentImage = getCurrentImage()

@@ -43,38 +43,60 @@ const ProductsSection = () => {
   useEffect(() => {
     const loadProducts = async () => {
       try {
+        // Get products images from API first
+        const imagesResponse = await fetch('/api/images?section=products')
+        const imagesData = await imagesResponse.json()
+        
         // Get products content from API
         const contentResponse = await fetch('/api/content?section=products')
         const contentData = await contentResponse.json()
         
-        // Get products images from API
-        const imagesResponse = await fetch('/api/images?section=products')
-        const imagesData = await imagesResponse.json()
+        console.log('Products images:', imagesData.images)
+        console.log('Products content:', contentData.content)
         
-        if (contentData.content && contentData.content.length > 0) {
+        // If we have images but no content, create products from images
+        if (imagesData.images && imagesData.images.length > 0) {
+          const dynamicProducts: Product[] = imagesData.images.map((image: any, index: number) => {
+            // Find matching content for this image
+            const matchingContent = contentData.content?.find((content: any) => 
+              content.subsection === image.subsection
+            )
+            
+            // Use content if available, otherwise create from image data
+            if (matchingContent) {
+              return {
+                id: image.subsection || `product-${image.id}`,
+                title: matchingContent.title,
+                description: matchingContent.content,
+                image: image.file_path
+              }
+            } else {
+              // Create product from image data and static fallback
+              const staticProduct = staticProducts[index % staticProducts.length] || staticProducts[0]
+              return {
+                id: image.subsection || `product-${image.id}`,
+                title: image.title || image.subsection || staticProduct.title,
+                description: image.description || staticProduct.description,
+                image: image.file_path
+              }
+            }
+          })
+          
+          setProducts(dynamicProducts)
+        } else if (contentData.content && contentData.content.length > 0) {
+          // Fallback to content-based products with static images
           const dynamicProducts: Product[] = contentData.content.map((content: any, index: number) => {
-            // Find images for this product subsection
-            const productImages = imagesData.images?.filter((img: any) => 
-              img.subsection === content.subsection || 
-              (!content.subsection && !img.subsection)
-            ) || []
-            
-            // Use first available image or fallback to static
-            const productImage = productImages.length > 0 
-              ? productImages[0].file_path 
-              : staticProducts[index % staticProducts.length]?.image || staticProducts[0].image
-            
             return {
               id: content.subsection || `product-${content.id}`,
               title: content.title,
               description: content.content,
-              image: productImage
+              image: staticProducts[index % staticProducts.length]?.image || staticProducts[0].image
             }
           })
           
           setProducts(dynamicProducts)
         } else {
-          // Use static products if no database content
+          // Use static products if no database content or images
           setProducts(staticProducts)
         }
       } catch (error) {
@@ -84,6 +106,76 @@ const ProductsSection = () => {
     }
     
     loadProducts()
+  }, [])
+
+  // Listen for content updates from admin panel
+  useEffect(() => {
+    const handleContentUpdate = () => {
+      const loadProducts = async () => {
+        try {
+          // Get products images from API first
+          const imagesResponse = await fetch('/api/images?section=products')
+          const imagesData = await imagesResponse.json()
+          
+          // Get products content from API
+          const contentResponse = await fetch('/api/content?section=products')
+          const contentData = await contentResponse.json()
+          
+          // If we have images but no content, create products from images
+          if (imagesData.images && imagesData.images.length > 0) {
+            const dynamicProducts: Product[] = imagesData.images.map((image: any, index: number) => {
+              // Find matching content for this image
+              const matchingContent = contentData.content?.find((content: any) => 
+                content.subsection === image.subsection
+              )
+              
+              // Use content if available, otherwise create from image data
+              if (matchingContent) {
+                return {
+                  id: image.subsection || `product-${image.id}`,
+                  title: matchingContent.title,
+                  description: matchingContent.content,
+                  image: image.file_path
+                }
+              } else {
+                // Create product from image data and static fallback
+                const staticProduct = staticProducts[index % staticProducts.length] || staticProducts[0]
+                return {
+                  id: image.subsection || `product-${image.id}`,
+                  title: image.title || image.subsection || staticProduct.title,
+                  description: image.description || staticProduct.description,
+                  image: image.file_path
+                }
+              }
+            })
+            
+            setProducts(dynamicProducts)
+          } else if (contentData.content && contentData.content.length > 0) {
+            // Fallback to content-based products with static images
+            const dynamicProducts: Product[] = contentData.content.map((content: any, index: number) => {
+              return {
+                id: content.subsection || `product-${content.id}`,
+                title: content.title,
+                description: content.content,
+                image: staticProducts[index % staticProducts.length]?.image || staticProducts[0].image
+              }
+            })
+            
+            setProducts(dynamicProducts)
+          } else {
+            setProducts(staticProducts)
+          }
+        } catch (error) {
+          console.error('Error loading products:', error)
+          setProducts(staticProducts)
+        }
+      }
+      
+      loadProducts()
+    }
+    
+    window.addEventListener('contentUpdated', handleContentUpdate)
+    return () => window.removeEventListener('contentUpdated', handleContentUpdate)
   }, [])
 
   const truncateText = (text: string, maxLength: number = 150) => {

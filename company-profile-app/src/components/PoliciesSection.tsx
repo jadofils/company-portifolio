@@ -238,6 +238,20 @@ const PoliciesSection = () => {
     }
   }, [activeSection]) // Remove the function dependencies to prevent infinite loop
 
+  // Listen for content updates from admin panel
+  useEffect(() => {
+    const handleContentUpdate = () => {
+      if (activeSection === 'policies') {
+        refreshPoliciesImages()
+      } else {
+        refreshSubsectionImages()
+      }
+    }
+    
+    window.addEventListener('contentUpdated', handleContentUpdate)
+    return () => window.removeEventListener('contentUpdated', handleContentUpdate)
+  }, [activeSection])
+
   const currentImage = getCurrentImage()
 
   return (

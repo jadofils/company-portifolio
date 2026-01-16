@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Menu, X, ChevronDown, Building2, Users, History, Target, Leaf, Search, FlaskConical, Hammer, Tag, Package, Truck, Ship, Gem, Shield, FileText, Scale, Award } from 'lucide-react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useSettings } from '@/hooks/useSettings'
@@ -8,16 +8,70 @@ import { useContent } from '@/hooks/useContent'
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
+  const [images, setImages] = useState<any[]>([])
   const router = useRouter()
   const pathname = usePathname()
   const { settings } = useSettings()
-  const { getContentBySection } = useContent()
+  const { getContentBySection, refreshContent } = useContent()
+
+  // Fetch images from API
+  const fetchImages = async () => {
+    try {
+      const response = await fetch('/api/images')
+      const data = await response.json()
+      setImages(data.images || [])
+    } catch (error) {
+      console.error('Failed to fetch images:', error)
+      setImages([])
+    }
+  }
+
+  // Refresh content when component mounts and periodically
+  useEffect(() => {
+    refreshContent()
+    fetchImages()
+    
+    // Listen for content updates from admin panel
+    const handleContentUpdate = () => {
+      refreshContent()
+      fetchImages()
+    }
+    
+    window.addEventListener('contentUpdated', handleContentUpdate)
+    
+    // Refresh every 30 seconds to catch updates
+    const interval = setInterval(() => {
+      refreshContent()
+      fetchImages()
+    }, 30000)
+    
+    return () => {
+      window.removeEventListener('contentUpdated', handleContentUpdate)
+      clearInterval(interval)
+    }
+  }, [])
 
   // Get dynamic subsections from database
   const aboutContent = getContentBySection('about')
   const servicesContent = getContentBySection('services')
   const productsContent = getContentBySection('products')
   const policiesContent = getContentBySection('policies')
+
+  // Helper function to get image for section/subsection
+  const getImageForSubsection = (section: string, subsection: string) => {
+    const sectionImages = images.filter(img => img.section === section)
+    // Try exact match first
+    let subsectionImage = sectionImages.find(img => img.subsection === subsection)
+    
+    // If no exact match, try with the original title (for static items)
+    if (!subsectionImage) {
+      const originalTitle = subsection.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      subsectionImage = sectionImages.find(img => img.subsection === originalTitle)
+    }
+    
+    console.log(`Looking for image: section=${section}, subsection=${subsection}, found:`, subsectionImage)
+    return subsectionImage?.file_path || null
+  }
 
   // Static fallback data with icons
   const staticAbout = [
@@ -52,58 +106,99 @@ const Navbar = () => {
   const aboutItems = [
     ...staticAbout.map((item, index) => {
       const subsectionKey = item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      const uploadedImage = getImageForSubsection('about', subsectionKey)
       return {
         ...item,
-        image_url: aboutContent.find(c => c.title === item.title)?.image_url || null
+        image_url: uploadedImage || aboutContent.find(c => c.title === item.title)?.image_url || null
       }
     }),
-    ...aboutContent.filter(item => !staticAbout.some(s => s.title === item.title)).map(item => ({
-      title: item.title,
-      icon: Building2,
-      image_url: item.image_url
-    }))
+    ...aboutContent.filter(item => !staticAbout.some(s => s.title === item.title)).map(item => {
+      const subsectionKey = item.subsection || item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      const uploadedImage = getImageForSubsection('about', subsectionKey)
+      return {
+        title: item.title,
+        icon: Building2,
+        image_url: uploadedImage || item.image_url
+      }
+    })
   ]
   const services = [
     ...staticServices.map((item, index) => {
-      const subsectionKey = item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      // Map static titles to exact database subsection names
+      const subsectionMap = {
+        'Sourcing': 'sourcing',
+        'Testing & Analysis': 'testing-analysis', 
+        'Crushing': 'crushing',
+        'Tagging': 'tagging',
+        'Packing': 'packing',
+        'Loading': 'loading',
+        'Shipping': 'shipping'
+      }
+      const subsectionKey = subsectionMap[item.title as keyof typeof subsectionMap] || item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      const uploadedImage = getImageForSubsection('services', subsectionKey)
+      console.log(`Static service ${item.title}: looking for subsection '${subsectionKey}', found image:`, uploadedImage)
       return {
         ...item,
-        image_url: servicesContent.find(c => c.title === item.title)?.image_url || null
+        image_url: uploadedImage || servicesContent.find(c => c.title === item.title)?.image_url || null
       }
     }),
-    ...servicesContent.filter(item => !staticServices.some(s => s.title === item.title)).map(item => ({
-      title: item.title,
-      icon: Building2,
-      image_url: item.image_url
-    }))
+    ...servicesContent.filter(item => !staticServices.some(s => s.title === item.title)).map(item => {
+      const subsectionKey = item.subsection || item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      const uploadedImage = getImageForSubsection('services', subsectionKey)
+      return {
+        title: item.title,
+        icon: Building2,
+        image_url: uploadedImage || item.image_url
+      }
+    })
   ]
   const products = [
     ...staticProducts.map((item, index) => {
-      const subsectionKey = item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      // Use exact subsection name as stored in database
+      const subsectionKey = item.title.toLowerCase() // 'coltan', 'cassiterite', 'tungsten'
+      const uploadedImage = getImageForSubsection('products', subsectionKey)
+      console.log(`Static product ${item.title}: looking for subsection '${subsectionKey}', found image:`, uploadedImage)
       return {
         ...item,
-        image_url: productsContent.find(c => c.title === item.title)?.image_url || null
+        image_url: uploadedImage || productsContent.find(c => c.title === item.title)?.image_url || null
       }
     }),
-    ...productsContent.filter(item => !staticProducts.some(s => s.title === item.title)).map(item => ({
-      title: item.title,
-      icon: Gem,
-      image_url: item.image_url
-    }))
+    ...productsContent.filter(item => !staticProducts.some(s => s.title === item.title)).map(item => {
+      const subsectionKey = item.subsection || item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      const uploadedImage = getImageForSubsection('products', subsectionKey)
+      return {
+        title: item.title,
+        icon: Gem,
+        image_url: uploadedImage || item.image_url
+      }
+    })
   ]
   const policies = [
     ...staticPolicies.map((item, index) => {
-      const subsectionKey = item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      // Map static titles to exact database subsection names
+      const subsectionMap = {
+        'Environmental Policy': 'environmental-policy',
+        'Safety Standards': 'safety-standards',
+        'Quality Assurance': 'quality-assurance',
+        'Compliance': 'compliance'
+      }
+      const subsectionKey = subsectionMap[item.title as keyof typeof subsectionMap] || item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      const uploadedImage = getImageForSubsection('policies', subsectionKey)
+      console.log(`Static policy ${item.title}: looking for subsection '${subsectionKey}', found image:`, uploadedImage)
       return {
         ...item,
-        image_url: policiesContent.find(c => c.title === item.title)?.image_url || null
+        image_url: uploadedImage || policiesContent.find(c => c.title === item.title)?.image_url || null
       }
     }),
-    ...policiesContent.filter(item => !staticPolicies.some(s => s.title === item.title)).map(item => ({
-      title: item.title,
-      icon: Shield,
-      image_url: item.image_url
-    }))
+    ...policiesContent.filter(item => !staticPolicies.some(s => s.title === item.title)).map(item => {
+      const subsectionKey = item.subsection || item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      const uploadedImage = getImageForSubsection('policies', subsectionKey)
+      return {
+        title: item.title,
+        icon: Shield,
+        image_url: uploadedImage || item.image_url
+      }
+    })
   ]
 
   const scrollToSection = (sectionId: string, subsection?: string) => {
@@ -232,8 +327,12 @@ const Navbar = () => {
                               alt={service.title}
                               className="w-full h-full object-cover"
                               onError={(e) => {
+                                console.error(`Failed to load service image: ${service.image_url}`)
                                 e.currentTarget.style.display = 'none'
                                 e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                              }}
+                              onLoad={() => {
+                                console.log(`Successfully loaded service image: ${service.image_url}`)
                               }}
                             />
                           ) : null}

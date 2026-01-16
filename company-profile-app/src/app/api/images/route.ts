@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
+import { v2 as cloudinary } from 'cloudinary'
 import { sql } from '@/lib/database-vercel'
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,7 +56,7 @@ export async function POST(request: NextRequest) {
       })
     }
     
-    // Handle file upload
+    // Handle file upload to Cloudinary
     const formData = await request.formData()
     const file = formData.get('file') as File
     const section = formData.get('section') as string
@@ -74,31 +80,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', section)
-    await mkdir(uploadsDir, { recursive: true })
-
-    // Generate unique filename
-    const timestamp = Date.now()
-    const filename = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-    const filePath = path.join(uploadsDir, filename)
-    const publicPath = `/uploads/${section}/${filename}`
-
-    // Save file
+    // Convert file to buffer for Cloudinary upload
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filePath, buffer)
 
-    // Save to database
+    // Upload to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          folder: `company-portfolio/${section}`,
+          public_id: `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`,
+          resource_type: 'auto'
+        },
+        (error, result) => {
+          if (error) reject(error)
+          else resolve(result)
+        }
+      ).end(buffer)
+    })
+
+    const cloudinaryResult = uploadResult as any
+
+    // Save to database with Cloudinary URL
     await sql`
       INSERT INTO images (filename, original_name, section, subsection, title, description, file_path, file_size, mime_type, is_url)
-      VALUES (${filename}, ${file.name}, ${section}, ${subsection || null}, ${title || null}, ${description || null}, ${publicPath}, ${file.size}, ${file.type}, false)
+      VALUES (${cloudinaryResult.public_id}, ${file.name}, ${section}, ${subsection || null}, ${title || null}, ${description || null}, ${cloudinaryResult.secure_url}, ${file.size}, ${file.type}, false)
     `
 
     return NextResponse.json({
       success: true,
-      message: 'Image uploaded successfully',
-      path: publicPath
+      message: 'Image uploaded successfully to Cloudinary',
+      path: cloudinaryResult.secure_url
     })
 
   } catch (error) {

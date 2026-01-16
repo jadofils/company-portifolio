@@ -15,6 +15,7 @@ interface ContentItem {
 interface UseContentReturn {
   content: ContentItem[]
   getContentBySection: (section: string, subsection?: string) => ContentItem[]
+  getContentWithFallback: (section: string, subsection?: string) => ContentItem[]
   loading: boolean
   refreshContent: () => Promise<void>
 }
@@ -116,6 +117,19 @@ export function useContent(): UseContentReturn {
       filtered = filtered.filter(item => item.subsection === subsection)
     }
     
+    // Always return database content if it exists, don't fall back to defaults
+    // This ensures database content overrides static content
+    return filtered
+  }
+
+  // New function to get content with static fallbacks
+  const getContentWithFallback = (section: string, subsection?: string): ContentItem[] => {
+    let filtered = content.filter(item => item.section === section)
+    
+    if (subsection) {
+      filtered = filtered.filter(item => item.subsection === subsection)
+    }
+    
     // If no content found, return defaults for that section
     if (filtered.length === 0 && defaultContent[section as keyof typeof defaultContent]) {
       const defaults = defaultContent[section as keyof typeof defaultContent]
@@ -130,6 +144,7 @@ export function useContent(): UseContentReturn {
   return {
     content,
     getContentBySection,
+    getContentWithFallback,
     loading,
     refreshContent
   }

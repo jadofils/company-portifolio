@@ -51,57 +51,52 @@ const ProductsSection = () => {
         const imagesData = await imagesResponse.json()
         
         // Get products content from API
-        const contentResponse = await fetch('/api/content?section=products')
+        const contentResponse = await fetch('/api/content')
         const contentData = await contentResponse.json()
+        const productsContent = contentData.content?.filter((item: any) => item.section === 'products') || []
         
         // console.log('Products images:', imagesData.images)
-        // console.log('Products content:', contentData.content)
+        // console.log('Products content:', productsContent)
         
-        // If we have images but no content, create products from images
-        if (imagesData.images && imagesData.images.length > 0) {
-          const dynamicProducts: Product[] = imagesData.images.map((image: any, index: number) => {
-            // Find matching content for this image
-            const matchingContent = contentData.content?.find((content: any) => 
-              content.subsection === image.subsection
+        // Combine static products with database products
+        const allProducts: Product[] = []
+        
+        // Add static products first
+        staticProducts.forEach((staticProduct, index) => {
+          const matchingImage = imagesData.images?.find((img: any) => img.subsection === staticProduct.id)
+          const matchingContent = productsContent?.find((content: any) => content.subsection === staticProduct.id)
+          
+          allProducts.push({
+            id: staticProduct.id,
+            title: matchingContent?.title || staticProduct.title,
+            description: matchingContent?.content || staticProduct.description,
+            image: matchingImage?.file_path || staticProduct.image
+          })
+        })
+        
+        // Add database-only products (not in static list)
+        productsContent?.forEach((content: any) => {
+          if (!staticProducts.some(sp => sp.id === content.subsection)) {
+            // Try multiple ways to find matching image
+            let matchingImage = imagesData.images?.find((img: any) => 
+              img.subsection === content.subsection ||
+              img.subsection === content.title.toLowerCase().replace(/\s+/g, '-') ||
+              img.title === content.title
             )
             
-            // Use content if available, otherwise create from image data
-            if (matchingContent) {
-              return {
-                id: image.subsection || `product-${image.id}`,
-                title: matchingContent.title,
-                description: matchingContent.content,
-                image: image.file_path
-              }
-            } else {
-              // Create product from image data and static fallback
-              const staticProduct = staticProducts[index % staticProducts.length] || staticProducts[0]
-              return {
-                id: image.subsection || `product-${image.id}`,
-                title: image.title || image.subsection || staticProduct.title,
-                description: image.description || staticProduct.description,
-                image: image.file_path
-              }
-            }
-          })
-          
-          setProducts(dynamicProducts)
-        } else if (contentData.content && contentData.content.length > 0) {
-          // Fallback to content-based products with static images
-          const dynamicProducts: Product[] = contentData.content.map((content: any, index: number) => {
-            return {
+            // Use content image_url if available, otherwise matching image, otherwise static fallback
+            const productImage = content.image_url || matchingImage?.file_path || staticProducts[0].image
+            
+            allProducts.push({
               id: content.subsection || `product-${content.id}`,
               title: content.title,
               description: content.content,
-              image: staticProducts[index % staticProducts.length]?.image || staticProducts[0].image
-            }
-          })
-          
-          setProducts(dynamicProducts)
-        } else {
-          // Use static products if no database content or images
-          setProducts(staticProducts)
-        }
+              image: productImage
+            })
+          }
+        })
+        
+        setProducts(allProducts.length > 0 ? allProducts : staticProducts)
       } catch (error) {
         // console.error('Error loading products:', error)
         setProducts(staticProducts)
@@ -121,53 +116,49 @@ const ProductsSection = () => {
           const imagesData = await imagesResponse.json()
           
           // Get products content from API
-          const contentResponse = await fetch('/api/content?section=products')
+          const contentResponse = await fetch('/api/content')
           const contentData = await contentResponse.json()
+          const productsContent = contentData.content?.filter((item: any) => item.section === 'products') || []
           
-          // If we have images but no content, create products from images
-          if (imagesData.images && imagesData.images.length > 0) {
-            const dynamicProducts: Product[] = imagesData.images.map((image: any, index: number) => {
-              // Find matching content for this image
-              const matchingContent = contentData.content?.find((content: any) => 
-                content.subsection === image.subsection
+          // Combine static products with database products
+          const allProducts: Product[] = []
+          
+          // Add static products first
+          staticProducts.forEach((staticProduct, index) => {
+            const matchingImage = imagesData.images?.find((img: any) => img.subsection === staticProduct.id)
+            const matchingContent = productsContent?.find((content: any) => content.subsection === staticProduct.id)
+            
+            allProducts.push({
+              id: staticProduct.id,
+              title: matchingContent?.title || staticProduct.title,
+              description: matchingContent?.content || staticProduct.description,
+              image: matchingImage?.file_path || staticProduct.image
+            })
+          })
+          
+          // Add database-only products (not in static list)
+          productsContent?.forEach((content: any) => {
+            if (!staticProducts.some(sp => sp.id === content.subsection)) {
+              // Try multiple ways to find matching image
+              let matchingImage = imagesData.images?.find((img: any) => 
+                img.subsection === content.subsection ||
+                img.subsection === content.title.toLowerCase().replace(/\s+/g, '-') ||
+                img.title === content.title
               )
               
-              // Use content if available, otherwise create from image data
-              if (matchingContent) {
-                return {
-                  id: image.subsection || `product-${image.id}`,
-                  title: matchingContent.title,
-                  description: matchingContent.content,
-                  image: image.file_path
-                }
-              } else {
-                // Create product from image data and static fallback
-                const staticProduct = staticProducts[index % staticProducts.length] || staticProducts[0]
-                return {
-                  id: image.subsection || `product-${image.id}`,
-                  title: image.title || image.subsection || staticProduct.title,
-                  description: image.description || staticProduct.description,
-                  image: image.file_path
-                }
-              }
-            })
-            
-            setProducts(dynamicProducts)
-          } else if (contentData.content && contentData.content.length > 0) {
-            // Fallback to content-based products with static images
-            const dynamicProducts: Product[] = contentData.content.map((content: any, index: number) => {
-              return {
+              // Use content image_url if available, otherwise matching image, otherwise static fallback
+              const productImage = content.image_url || matchingImage?.file_path || staticProducts[0].image
+              
+              allProducts.push({
                 id: content.subsection || `product-${content.id}`,
                 title: content.title,
                 description: content.content,
-                image: staticProducts[index % staticProducts.length]?.image || staticProducts[0].image
-              }
-            })
-            
-            setProducts(dynamicProducts)
-          } else {
-            setProducts(staticProducts)
-          }
+                image: productImage
+              })
+            }
+          })
+          
+          setProducts(allProducts.length > 0 ? allProducts : staticProducts)
         } catch (error) {
           // console.error('Error loading products:', error)
           setProducts(staticProducts)
@@ -252,14 +243,14 @@ const ProductsSection = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setSelectedProduct(product)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 ${themeClasses.button} ${themeClasses.radius} transition-colors`}
                   >
                     <Eye className="h-4 w-4" />
                     View Details
                   </button>
                   <button
                     onClick={() => handleBuyNow(product)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 ${themeClasses.buttonPrimary} ${themeClasses.radius} transition-colors`}
                   >
                     <ShoppingCart className="h-4 w-4" />
                     Buy Now
@@ -302,7 +293,7 @@ const ProductsSection = () => {
                     setSelectedProduct(null)
                     handleBuyNow(selectedProduct)
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 ${themeClasses.buttonPrimary} ${themeClasses.radius} transition-colors`}
                 >
                   <ShoppingCart className="h-5 w-5" />
                   Buy Now

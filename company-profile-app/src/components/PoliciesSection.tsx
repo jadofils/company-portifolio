@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ArrowRight, Shield } from 'lucide-react'
+import { ArrowRight, Shield, ChevronDown, ChevronUp } from 'lucide-react'
 import { useImages } from '@/hooks/useImages'
 import { useContent } from '@/hooks/useContent'
 import { useTheme } from '@/hooks/useTheme'
@@ -14,6 +14,7 @@ type PolicySectionKey =
 
 const PoliciesSection = () => {
   const [activeSection, setActiveSection] = useState('policies')
+  const [showAllSections, setShowAllSections] = useState(false)
   const { images: policiesImages, refreshImages: refreshPoliciesImages } = useImages('policies')
   const { images: subsectionImages, refreshImages: refreshSubsectionImages } = useImages('policies', activeSection === 'policies' ? undefined : activeSection)
   const { getContentBySection } = useContent()
@@ -280,7 +281,7 @@ const PoliciesSection = () => {
               <div className="bg-gray-50 border border-gray-200 rounded p-4">
                 <h3 className="font-bold text-gray-900 mb-4">Policy Areas</h3>
                 <ul className="space-y-2">
-                  {allSections.map((section) => (
+                  {(showAllSections ? allSections : allSections.slice(0, 4)).map((section) => (
                     <li key={section.id}>
                       <button
                         onClick={() => setActiveSection(section.id)}
@@ -294,6 +295,26 @@ const PoliciesSection = () => {
                       </button>
                     </li>
                   ))}
+                  {allSections.length > 4 && (
+                    <li>
+                      <button
+                        onClick={() => setShowAllSections(!showAllSections)}
+                        className="w-full flex items-center justify-center px-3 py-2 text-sm rounded transition-colors hover:bg-gray-100 text-blue-600"
+                      >
+                        {showAllSections ? (
+                          <>
+                            <ChevronUp className="h-4 w-4 mr-1" />
+                            Show Less
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-4 w-4 mr-1" />
+                            Show More ({allSections.length - 4})
+                          </>
+                        )}
+                      </button>
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>

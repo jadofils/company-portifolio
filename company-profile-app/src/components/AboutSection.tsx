@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useImages } from '@/hooks/useImages'
 import { useContent } from '@/hooks/useContent'
 import { useTheme } from '@/hooks/useTheme'
-import { Building } from 'lucide-react'
+import { Building, ChevronDown, ChevronUp } from 'lucide-react'
 
 type AboutSectionKey =
   | 'corporate-governance'
@@ -19,6 +19,7 @@ const AboutSection = () => {
   const themeClasses = getThemeClasses
   const aboutContent = getContentBySection('about')
   const [activeSection, setActiveSection] = useState('about')
+  const [showAllSections, setShowAllSections] = useState(false)
   const { images: aboutImages, refreshImages: refreshAboutImages } = useImages('about')
   const { images: subsectionImages, refreshImages: refreshSubsectionImages } = useImages('about', activeSection === 'about' ? undefined : activeSection)
 
@@ -99,13 +100,13 @@ const AboutSection = () => {
       (item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '') === sectionId)
     )
     if (dynamicContent) {
-      console.log(`Using database content for ${sectionId}:`, dynamicContent)
+      // console.log(`Using database content for ${sectionId}:`, dynamicContent)
       return dynamicContent
     }
     
     // Otherwise use static content as fallback
     if (staticContent[sectionId]) {
-      console.log(`Using static fallback content for ${sectionId}`)
+      // console.log(`Using static fallback content for ${sectionId}`)
       return {
         title: staticContent[sectionId].title,
         content: staticContent[sectionId].content,
@@ -120,9 +121,9 @@ const AboutSection = () => {
   
   // Get the appropriate image for current section/subsection
   const getCurrentImage = () => {
-    console.log('AboutSection getCurrentImage called with activeSection:', activeSection)
-    console.log('aboutImages:', aboutImages)
-    console.log('subsectionImages:', subsectionImages)
+    // console.log('AboutSection getCurrentImage called with activeSection:', activeSection)
+    // console.log('aboutImages:', aboutImages)
+    // console.log('subsectionImages:', subsectionImages)
     
     // If main about section, use general about images (where subsection is null)
     if (activeSection === 'about') {
@@ -258,7 +259,7 @@ const AboutSection = () => {
                   About Sections
                 </h3>
                 <ul className="space-y-2">
-                  {allSections.map((item) => (
+                  {(showAllSections ? allSections : allSections.slice(0, 4)).map((item) => (
                     <li key={item.id}>
                       <button
                         onClick={() => setActiveSection(item.id)}
@@ -278,6 +279,30 @@ const AboutSection = () => {
                       </button>
                     </li>
                   ))}
+                  {allSections.length > 4 && (
+                    <li>
+                      <button
+                        onClick={() => setShowAllSections(!showAllSections)}
+                        className={`w-full flex items-center justify-center px-3 py-2 text-sm ${themeClasses.radius} transition-colors hover:${theme.theme_mode === 'dark' ? 'bg-gray-700' : 'bg-gray-100'}`}
+                        style={{
+                          color: theme.primary_color,
+                          fontFamily: theme.font_family
+                        }}
+                      >
+                        {showAllSections ? (
+                          <>
+                            <ChevronUp className="h-4 w-4 mr-1" />
+                            Show Less
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-4 w-4 mr-1" />
+                            Show More ({allSections.length - 4})
+                          </>
+                        )}
+                      </button>
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>

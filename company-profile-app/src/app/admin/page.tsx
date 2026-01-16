@@ -144,12 +144,8 @@ export default function AdminDashboard() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [errors, setErrors] = useState<{[key: string]: string}>({})
   const [savingSettings, setSavingSettings] = useState(false)
-  const [publicationForm, setPublicationForm] = useState({
-    title: '',
-    description: '',
-    content: '',
-    published_date: new Date().toISOString().split('T')[0]
-  })
+  const [contentImageFile, setContentImageFile] = useState<File | null>(null)
+  const [uploadingContentImage, setUploadingContentImage] = useState(false)
 
   const sidebarItems = [
     { id: 'images', label: 'Images', icon: ImageIcon },
@@ -158,6 +154,45 @@ export default function AdminDashboard() {
     { id: 'messages', label: 'Messages', icon: Mail },
     { id: 'settings', label: 'Settings', icon: Settings }
   ]
+
+  const [publicationForm, setPublicationForm] = useState({
+    title: '',
+    description: '',
+    content: '',
+    published_date: new Date().toISOString().split('T')[0]
+  })
+
+  const handleContentImageUpload = async (file: File) => {
+    if (!file) return null
+    
+    setUploadingContentImage(true)
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('section', contentForm.section)
+    if (contentForm.subsection) formData.append('subsection', contentForm.subsection)
+    formData.append('title', `${contentForm.title} - Image`)
+
+    try {
+      const response = await fetch('/api/images', {
+        method: 'POST',
+        body: formData
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        return result.path
+      } else {
+        alert('Image upload failed: ' + result.error)
+        return null
+      }
+    } catch (error) {
+      console.error('Image upload error:', error)
+      alert('Image upload failed')
+      return null
+    } finally {
+      setUploadingContentImage(false)
+    }
+  }
 
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST' })
@@ -375,36 +410,56 @@ export default function AdminDashboard() {
   }
 
   const handleSettingsUpdate = async () => {
-    // console.log('Starting settings update...')
-    // console.log('Current settings:', settings)
-    
     if (!validateCompanyInfo()) {
-      // console.log('Validation failed')
       return
     }
     
     setSavingSettings(true)
     try {
-      // console.log('Sending PUT request to /api/settings')
+      // Ensure all values are properly serialized
+      const settingsToSend = {
+        ...settings,
+        // Ensure all values are strings or proper types
+        company_name: settings?.company_name || '',
+        company_logo: settings?.company_logo || '',
+        company_address: settings?.company_address || '',
+        company_phone: settings?.company_phone || '',
+        company_email: settings?.company_email || '',
+        footer_description: settings?.footer_description || '',
+        facebook_url: settings?.facebook_url || '',
+        twitter_url: settings?.twitter_url || '',
+        linkedin_url: settings?.linkedin_url || '',
+        instagram_url: settings?.instagram_url || '',
+        youtube_url: settings?.youtube_url || '',
+        theme_mode: settings?.theme_mode || 'light',
+        primary_color: settings?.primary_color || '#2563eb',
+        secondary_color: settings?.secondary_color || '#64748b',
+        accent_color: settings?.accent_color || '#059669',
+        background_color: settings?.background_color || '#ffffff',
+        text_color: settings?.text_color || '#1f2937',
+        font_size: settings?.font_size || 'medium',
+        font_family: settings?.font_family || 'Inter, sans-serif',
+        section_spacing: settings?.section_spacing || 'normal',
+        border_radius: settings?.border_radius || 'medium'
+      }
+      
       const response = await fetch('/api/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(settingsToSend)
       })
 
-      // console.log('Response status:', response.status)
       const result = await response.json()
-      // console.log('Response result:', result)
       
       if (result.success) {
-        // Refresh theme immediately for theme settings
         if (activeSettingsTab === 'theme') {
           await refreshTheme()
-          // Dispatch event to refresh theme across all components
           window.dispatchEvent(new CustomEvent('themeUpdated'))
         }
         alert('Settings updated successfully!')
-        // Only refresh page for non-theme settings to avoid losing theme changes
         if (activeSettingsTab !== 'theme') {
           window.location.reload()
         }
@@ -412,7 +467,7 @@ export default function AdminDashboard() {
         alert('Update failed: ' + result.error)
       }
     } catch (error) {
-      // console.error('Settings update error:', error)
+      console.error('Settings update error:', error)
       alert('Update failed: Network error')
     } finally {
       setSavingSettings(false)
@@ -736,12 +791,20 @@ export default function AdminDashboard() {
 
     setUploading(true)
     try {
+      let imageUrl = contentForm.image_url
+      
+      // Upload image if file is selected and creating new subsection
+      if (contentImageFile && !isEditing && !availableSubsections[contentForm.section]?.includes(contentForm.subsection)) {
+        const uploadedImageUrl = await handleContentImageUpload(contentImageFile)
+        if (uploadedImageUrl) {
+          imageUrl = uploadedImageUrl
+        }
+      }
+
       const method = isEditing ? 'PUT' : 'POST'
       const body = isEditing 
-        ? JSON.stringify({ ...contentForm, id: editingContent?.id })
-        : JSON.stringify(contentForm)
-
-      // console.log('Submitting content:', { method, body, isEditing })
+        ? JSON.stringify({ ...contentForm, image_url: imageUrl, id: editingContent?.id })
+        : JSON.stringify({ ...contentForm, image_url: imageUrl })
 
       const response = await fetch('/api/content', {
         method,
@@ -750,26 +813,22 @@ export default function AdminDashboard() {
       })
 
       const result = await response.json()
-      // console.log('Content submission result:', result)
       
       if (result.success) {
         alert(isEditing ? 'Content updated successfully!' : 'Content saved successfully!')
         setContentForm({ section: 'about', subsection: '', title: '', content: '', image_url: '' })
+        setContentImageFile(null)
         setIsEditing(false)
         setEditingContent(null)
         await fetchContent()
-        // Trigger content update event for navbar and components
         window.dispatchEvent(new CustomEvent('contentUpdated'))
-        // Force refresh of the page to ensure all UI updates
         setTimeout(() => {
           window.location.reload()
         }, 1000)
       } else {
-        // console.error('Content save failed:', result)
         alert('Failed to save content: ' + (result.error || 'Unknown error'))
       }
     } catch (error) {
-      // console.error('Content error:', error)
       alert('Failed to save content: Network error')
     }
     setUploading(false)
@@ -789,6 +848,7 @@ export default function AdminDashboard() {
 
   const cancelEdit = () => {
     setContentForm({ section: 'about', subsection: '', title: '', content: '', image_url: '' })
+    setContentImageFile(null)
     setIsEditing(false)
     setEditingContent(null)
   }
@@ -825,9 +885,9 @@ export default function AdminDashboard() {
     <div className={`min-h-screen ${themeClasses.background}`}>
       <Navbar />
       
-      <div className="flex mt-16">
+      <div className="flex flex-col lg:flex-row mt-16">
         {/* Sidebar */}
-        <div className={`w-64 ${themeClasses.card} border-r min-h-screen`}>
+        <div className={`w-full lg:w-64 ${themeClasses.card} border-r lg:min-h-screen`}>
           <div className="p-6">
             <h2 className={`text-xl font-bold ${themeClasses.textPrimary} mb-6`}>Admin Dashboard</h2>
             <nav className="space-y-2">
@@ -837,14 +897,14 @@ export default function AdminDashboard() {
                   <button
                     key={item.id}
                     onClick={() => setActiveSection(item.id)}
-                    className={`w-full flex items-center px-3 py-2 text-left ${themeClasses.radius} transition-colors ${
+                    className={`w-full flex items-center px-3 py-2 text-left text-sm lg:text-base ${themeClasses.radius} transition-colors ${
                       activeSection === item.id
                         ? `bg-primary text-white font-medium`
                         : `${themeClasses.textSecondary} ${themeClasses.button}`
                     }`}
                   >
-                    <Icon className="h-5 w-5 mr-3" />
-                    {item.label}
+                    <Icon className="h-4 w-4 lg:h-5 lg:w-5 mr-2 lg:mr-3" />
+                    <span className="hidden sm:inline">{item.label}</span>
                   </button>
                 )
               })}
@@ -854,24 +914,24 @@ export default function AdminDashboard() {
             <div className={`mt-8 pt-6 border-t ${themeClasses.formBorder}`}>
               <button
                 onClick={handleLogout}
-                className={`w-full flex items-center px-3 py-2 text-left ${themeClasses.radius} transition-colors text-red-600 hover:bg-red-50`}
+                className={`w-full flex items-center px-3 py-2 text-left text-sm lg:text-base ${themeClasses.radius} transition-colors text-red-600 hover:bg-red-50`}
               >
-                <User className="h-5 w-5 mr-3" />
-                Logout
+                <User className="h-4 w-4 lg:h-5 lg:w-5 mr-2 lg:mr-3" />
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 lg:p-8">
 {activeSection === 'images' && (
             <div>
-              <h3 className={`text-2xl font-bold ${themeClasses.textPrimary} mb-6`}>Image Management</h3>
-              <div className="grid lg:grid-cols-3 gap-8">
+              <h3 className={`text-xl lg:text-2xl font-bold ${themeClasses.textPrimary} mb-4 lg:mb-6`}>Image Management</h3>
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-8">
                 {/* Upload Form */}
-                <div className="lg:col-span-1">
-                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
+                <div className="xl:col-span-1">
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-4 lg:p-6`}>
                     <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Upload Image</h4>
                     
                     <div className="space-y-4">
@@ -988,8 +1048,8 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Images Gallery */}
-                <div className="lg:col-span-2">
-                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
+                <div className="xl:col-span-2">
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-4 lg:p-6`}>
                     <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Uploaded Images</h4>
                     
                     {images.length === 0 ? (
@@ -998,7 +1058,7 @@ export default function AdminDashboard() {
                         <p className="text-gray-500">No images uploaded yet</p>
                       </div>
                     ) : (
-                      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {images.map((image) => (
                           <div key={image.id} className="border border-gray-200 rounded overflow-hidden relative group">
                             <div className="aspect-video bg-gray-100 flex items-center justify-center">
@@ -1035,11 +1095,11 @@ export default function AdminDashboard() {
 
           {activeSection === 'content' && (
             <div>
-              <h3 className={`text-2xl font-bold ${themeClasses.textPrimary} mb-6`}>Content Management</h3>
-              <div className="grid lg:grid-cols-2 gap-8">
+              <h3 className={`text-xl lg:text-2xl font-bold ${themeClasses.textPrimary} mb-4 lg:mb-6`}>Content Management</h3>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-8">
                 {/* Content Form */}
                 <div>
-                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6 mb-6`}>
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-4 lg:p-6 mb-4 lg:mb-6`}>
                     <div className="flex justify-between items-center mb-4">
                       <h4 className={`text-lg font-bold ${themeClasses.textPrimary}`}>{isEditing ? 'Edit Content' : 'Add/Edit Content'}</h4>
                       {isEditing && (
@@ -1163,16 +1223,42 @@ export default function AdminDashboard() {
                         />
                       </div>
 
-                      <div>
-                        <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Image URL (Optional)</label>
-                        <input
-                          type="url"
-                          value={contentForm.image_url}
-                          onChange={(e) => setContentForm({...contentForm, image_url: e.target.value})}
-                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                          placeholder="https://example.com/image.jpg"
-                        />
-                      </div>
+                      {/* Show image upload only for new subsections */}
+                      {!isEditing && !availableSubsections[contentForm.section]?.includes(contentForm.subsection) && contentForm.subsection && (
+                        <div>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Image (Optional)</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setContentImageFile(e.target.files?.[0] || null)}
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                          />
+                          {uploadingContentImage && (
+                            <div className="text-center py-2">
+                              <div className="inline-flex items-center text-sm text-gray-600">
+                                <Upload className="animate-spin h-4 w-4 mr-2" />
+                                Uploading image...
+                              </div>
+                            </div>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">Image upload is only available when creating new subsections. For existing content, manage images through the Images section.</p>
+                        </div>
+                      )}
+
+                      {/* Show image URL for editing existing content */}
+                      {(isEditing || availableSubsections[contentForm.section]?.includes(contentForm.subsection)) && (
+                        <div>
+                          <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Image URL (Optional)</label>
+                          <input
+                            type="url"
+                            value={contentForm.image_url}
+                            onChange={(e) => setContentForm({...contentForm, image_url: e.target.value})}
+                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                            placeholder="https://example.com/image.jpg"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">For existing subsections, update images through the Images section in the sidebar.</p>
+                        </div>
+                      )}
 
                       <button
                         type="submit"
@@ -1187,14 +1273,14 @@ export default function AdminDashboard() {
 
                 {/* Content List */}
                 <div>
-                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
-                    <div className="flex justify-between items-center mb-4">
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-4 lg:p-6`}>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
                       <h4 className={`text-lg font-bold ${themeClasses.textPrimary}`}>Existing Content</h4>
-                      <div className="flex space-x-2">
+                      <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0 w-full sm:w-auto">
                         <select
                           value={contentForm.section}
                           onChange={(e) => setContentForm({...contentForm, section: e.target.value})}
-                          className={`px-3 py-1 ${themeClasses.input} ${themeClasses.radius} text-sm`}
+                          className={`px-3 py-1 ${themeClasses.input} ${themeClasses.radius} text-sm w-full sm:w-auto`}
                         >
                           <option value="about">About Us</option>
                           <option value="services">Services</option>
@@ -1204,7 +1290,7 @@ export default function AdminDashboard() {
                         <select
                           value={contentFilter}
                           onChange={(e) => setContentFilter(e.target.value as 'all' | 'static' | 'database')}
-                          className={`px-3 py-1 ${themeClasses.input} ${themeClasses.radius} text-sm`}
+                          className={`px-3 py-1 ${themeClasses.input} ${themeClasses.radius} text-sm w-full sm:w-auto`}
                         >
                           <option value="all">All Content</option>
                           <option value="static">Static Only</option>
@@ -1330,11 +1416,11 @@ export default function AdminDashboard() {
 
           {activeSection === 'publications' && (
             <div>
-              <h3 className={`text-2xl font-bold ${themeClasses.textPrimary} mb-6`}>Publications Management</h3>
-              <div className="grid lg:grid-cols-2 gap-8">
+              <h3 className={`text-xl lg:text-2xl font-bold ${themeClasses.textPrimary} mb-4 lg:mb-6`}>Publications Management</h3>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-8">
                 {/* Create Publication Form */}
                 <div>
-                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6 mb-6`}>
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-4 lg:p-6 mb-4 lg:mb-6`}>
                     <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Create Publication</h4>
                     
                     <div className="flex space-x-2 mb-4">
@@ -1425,7 +1511,7 @@ export default function AdminDashboard() {
 
                 {/* Publications List */}
                 <div>
-                  <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
+                  <div className={`${themeClasses.card} ${themeClasses.radius} p-4 lg:p-6`}>
                     <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Published Content</h4>
                     
                     {publications.length === 0 ? (
@@ -1473,8 +1559,8 @@ export default function AdminDashboard() {
 
           {activeSection === 'messages' && (
             <div>
-              <h3 className={`text-2xl font-bold ${themeClasses.textPrimary} mb-6`}>Contact Messages</h3>
-              <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
+              <h3 className={`text-xl lg:text-2xl font-bold ${themeClasses.textPrimary} mb-4 lg:mb-6`}>Contact Messages</h3>
+              <div className={`${themeClasses.card} ${themeClasses.radius} p-4 lg:p-6`}>
                 {messages.length === 0 ? (
                   <div className="text-center py-8">
                     <Mail className="h-8 w-8 mx-auto text-gray-400 mb-2" />
@@ -1486,7 +1572,7 @@ export default function AdminDashboard() {
                       <div key={message.id} className={`border rounded p-4 ${
                         message.status === 'unread' ? 'border-blue-200 bg-blue-50' : 'border-gray-200'
                       }`}>
-                        <div className="flex justify-between items-start mb-2">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 space-y-2 sm:space-y-0">
                           <div>
                             <h4 className="font-medium text-gray-900">{message.name}</h4>
                             <p className="text-sm text-gray-600">{message.email}</p>
@@ -1494,7 +1580,7 @@ export default function AdminDashboard() {
                               <p className="text-sm text-gray-500">{message.company}</p>
                             )}
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
                             <span className={`px-2 py-1 text-xs rounded ${
                               message.status === 'unread' 
                                 ? 'bg-blue-100 text-blue-800' 
@@ -1527,15 +1613,15 @@ export default function AdminDashboard() {
 
           {activeSection === 'settings' && (
             <div>
-              <div className="flex items-center justify-between mb-6">
-              <h3 className={`text-2xl font-bold ${themeClasses.textPrimary} mb-6`}>Settings</h3>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 lg:mb-6 space-y-2 sm:space-y-0">
+              <h3 className={`text-xl lg:text-2xl font-bold ${themeClasses.textPrimary}`}>Settings</h3>
                 
                 {/* Settings Tabs Dropdown */}
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                   <select
                     value={activeSettingsTab}
                     onChange={(e) => setActiveSettingsTab(e.target.value)}
-                    className={`px-4 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    className={`w-full sm:w-auto px-4 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   >
                     {settingsTabs.map(tab => (
                       <option key={tab.id} value={tab.id}>{tab.label}</option>
@@ -1545,7 +1631,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Settings Content */}
-              <div className={`${themeClasses.card} ${themeClasses.radius} p-6`}>
+              <div className={`${themeClasses.card} ${themeClasses.radius} p-4 lg:p-6`}>
                 {activeSettingsTab === 'company' && (
                   <div>
                     <h4 className="text-lg font-bold mb-6">Company Information</h4>
@@ -1690,7 +1776,7 @@ export default function AdminDashboard() {
                     {/* Company Information Form - Separate */}
                     <div className="bg-white border border-gray-200 rounded p-4">
                       <h5 className="text-md font-semibold text-gray-900 mb-4">Company Details</h5>
-                      <div className="grid md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                         <div className="space-y-4">
                           <div>
                             <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Company Name</label>
@@ -1778,7 +1864,7 @@ export default function AdminDashboard() {
                 {activeSettingsTab === 'social' && (
                   <div>
                     <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Social Media Links</h4>
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                       <div className="space-y-4">
                         <div>
                           <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Facebook URL</label>
@@ -1855,7 +1941,7 @@ export default function AdminDashboard() {
                   <div>
                     <h4 className={`text-lg font-bold ${themeClasses.textPrimary} mb-4`}>Theme & Style Settings</h4>
                     
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                       {/* Theme Mode & Colors */}
                       <div className="space-y-4">
                         <h5 className={`font-medium ${themeClasses.textPrimary}`}>Theme & Colors</h5>
@@ -1874,12 +1960,12 @@ export default function AdminDashboard() {
 
                         <div>
                           <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Primary Color</label>
-                          <div className="flex space-x-2">
+                          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                             <input
                               type="color"
                               value={settings?.primary_color ?? '#2563eb'}
                               onChange={(e) => setSettings({...(settings ?? {}), primary_color: e.target.value})}
-                              className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                              className="w-full sm:w-12 h-10 border border-gray-300 rounded cursor-pointer"
                             />
                             <input
                               type="text"
@@ -1899,12 +1985,12 @@ export default function AdminDashboard() {
 
                         <div>
                           <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Secondary Color</label>
-                          <div className="flex space-x-2">
+                          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                             <input
                               type="color"
                               value={settings?.secondary_color ?? '#64748b'}
                               onChange={(e) => setSettings({...(settings ?? {}), secondary_color: e.target.value})}
-                              className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                              className="w-full sm:w-12 h-10 border border-gray-300 rounded cursor-pointer"
                             />
                             <input
                               type="text"
@@ -1924,12 +2010,12 @@ export default function AdminDashboard() {
 
                         <div>
                           <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Accent Color</label>
-                          <div className="flex space-x-2">
+                          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                             <input
                               type="color"
                               value={settings?.accent_color ?? '#059669'}
                               onChange={(e) => setSettings({...(settings ?? {}), accent_color: e.target.value})}
-                              className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                              className="w-full sm:w-12 h-10 border border-gray-300 rounded cursor-pointer"
                             />
                             <input
                               type="text"

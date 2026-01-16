@@ -55,22 +55,37 @@ const ProductsSection = () => {
         const contentData = await contentResponse.json()
         const productsContent = contentData.content?.filter((item: any) => item.section === 'products') || []
         
-        // console.log('Products images:', imagesData.images)
-        // console.log('Products content:', productsContent)
+        // console.log('Products images from DB:', imagesData.images)
+        // console.log('Products content from DB:', productsContent)
+        // console.log('Static products:', staticProducts)
         
         // Combine static products with database products
         const allProducts: Product[] = []
         
         // Add static products first
         staticProducts.forEach((staticProduct, index) => {
-          const matchingImage = imagesData.images?.find((img: any) => img.subsection === staticProduct.id)
-          const matchingContent = productsContent?.find((content: any) => content.subsection === staticProduct.id)
+          // Try multiple ways to find matching image for static products
+          let matchingImage = imagesData.images?.find((img: any) => 
+            img.subsection === staticProduct.id || // exact match: 'coltan', 'cassiterite', 'tungsten'
+            img.subsection === staticProduct.title.toLowerCase() || // title match
+            img.title === staticProduct.title // title in image title field
+          )
+          
+          const matchingContent = productsContent?.find((content: any) => 
+            content.subsection === staticProduct.id ||
+            content.title === staticProduct.title
+          )
+          
+          // Priority: 1) Database image, 2) Content image_url, 3) Static fallback
+          const productImage = matchingImage?.file_path || matchingContent?.image_url || staticProduct.image
+          
+          // console.log(`Product ${staticProduct.title}: DB image=${matchingImage?.file_path}, Content image=${matchingContent?.image_url}, Final=${productImage}`)
           
           allProducts.push({
             id: staticProduct.id,
             title: matchingContent?.title || staticProduct.title,
             description: matchingContent?.content || staticProduct.description,
-            image: matchingImage?.file_path || staticProduct.image
+            image: productImage
           })
         })
         
@@ -125,14 +140,28 @@ const ProductsSection = () => {
           
           // Add static products first
           staticProducts.forEach((staticProduct, index) => {
-            const matchingImage = imagesData.images?.find((img: any) => img.subsection === staticProduct.id)
-            const matchingContent = productsContent?.find((content: any) => content.subsection === staticProduct.id)
+            // Try multiple ways to find matching image for static products
+            let matchingImage = imagesData.images?.find((img: any) => 
+              img.subsection === staticProduct.id || // exact match: 'coltan', 'cassiterite', 'tungsten'
+              img.subsection === staticProduct.title.toLowerCase() || // title match
+              img.title === staticProduct.title // title in image title field
+            )
+            
+            const matchingContent = productsContent?.find((content: any) => 
+              content.subsection === staticProduct.id ||
+              content.title === staticProduct.title
+            )
+            
+            // Priority: 1) Database image, 2) Content image_url, 3) Static fallback
+            const productImage = matchingImage?.file_path || matchingContent?.image_url || staticProduct.image
+            
+            // console.log(`Product ${staticProduct.title}: DB image=${matchingImage?.file_path}, Content image=${matchingContent?.image_url}, Final=${productImage}`)
             
             allProducts.push({
               id: staticProduct.id,
               title: matchingContent?.title || staticProduct.title,
               description: matchingContent?.content || staticProduct.description,
-              image: matchingImage?.file_path || staticProduct.image
+              image: productImage
             })
           })
           

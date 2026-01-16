@@ -307,13 +307,13 @@ const ProductsSection = () => {
       {/* Contact Form Modal */}
       {showContactForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full">
+          <div className={`${themeClasses.card} ${themeClasses.radius} max-w-md w-full`}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-900">Contact Us</h3>
+                <h3 className={`text-xl font-bold ${themeClasses.textPrimary}`}>Contact Us</h3>
                 <button
                   onClick={() => setShowContactForm(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className={`${themeClasses.textSecondary} hover:${themeClasses.textPrimary}`}
                 >
                   <X className="h-6 w-6" />
                 </button>
@@ -321,45 +321,45 @@ const ProductsSection = () => {
               
               <form onSubmit={handleContactSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                  <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-1`}>Name *</label>
                   <input
                     type="text"
                     required
                     value={contactForm.name}
                     onChange={(e) => setContactForm({...contactForm, name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                  <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-1`}>Email *</label>
                   <input
                     type="email"
                     required
                     value={contactForm.email}
                     onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                  <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-1`}>Company</label>
                   <input
                     type="text"
                     value={contactForm.company}
                     onChange={(e) => setContactForm({...contactForm, company: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+                  <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-1`}>Message *</label>
                   <textarea
                     required
                     rows={4}
                     value={contactForm.message}
                     onChange={(e) => setContactForm({...contactForm, message: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   />
                 </div>
                 
@@ -367,13 +367,13 @@ const ProductsSection = () => {
                   <button
                     type="button"
                     onClick={() => setShowContactForm(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className={`flex-1 px-4 py-2 ${themeClasses.button} ${themeClasses.radius} transition-colors`}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className={`flex-1 px-4 py-2 ${themeClasses.buttonPrimary} ${themeClasses.radius} transition-colors`}
                   >
                     Send Message
                   </button>

@@ -91,7 +91,14 @@ const ServicesSection = () => {
   const allSections = [
     { id: 'services', title: 'Services' },
     ...serviceSections,
-    ...servicesContent.filter(item => !serviceSections.some(s => s.title === item.title)).map(item => ({
+    // Only add dynamic content that doesn't match static sections (by title or normalized title)
+    ...servicesContent.filter(item => 
+      item.subsection && // Must have a subsection
+      !serviceSections.some(s => 
+        s.title === item.title || 
+        s.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '') === item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      )
+    ).map(item => ({
       id: item.subsection || item.title.toLowerCase().replace(/\s+/g, '-'),
       title: item.title
     }))

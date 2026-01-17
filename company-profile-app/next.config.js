@@ -21,6 +21,16 @@ const nextConfig = {
       }
     ],
   },
+  // Increase body size limit for file uploads (10MB)
+  experimental: {
+    serverComponentsExternalPackages: ['better-sqlite3']
+  },
+  // API route body size limit
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
 }
 
 module.exports = nextConfig

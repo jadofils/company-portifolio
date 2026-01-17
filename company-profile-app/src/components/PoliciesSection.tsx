@@ -88,13 +88,17 @@ const PoliciesSection = () => {
   const allSections = [
     { id: 'policies', title: 'Policies' },
     ...staticSections,
-    ...policiesContent.filter(item => !staticSections.some(s => s.title === item.title)).map(item => {
-      console.log('Dynamic policy item:', item)
-      return {
-        id: item.subsection || item.title.toLowerCase().replace(/\s+/g, '-'),
-        title: item.title
-      }
-    })
+    // Only add dynamic content that doesn't match static sections (by title or normalized title)
+    ...policiesContent.filter(item => 
+      item.subsection && // Must have a subsection
+      !staticSections.some(s => 
+        s.title === item.title || 
+        s.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '') === item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
+      )
+    ).map(item => ({
+      id: item.subsection || item.title.toLowerCase().replace(/\s+/g, '-'),
+      title: item.title
+    }))
   ]
   
   console.log('PoliciesSection allSections:', allSections)

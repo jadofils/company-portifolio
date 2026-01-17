@@ -103,13 +103,14 @@ export default function AdminDashboard() {
   const [contentForm, setContentForm] = useState({
     section: 'about',
     subsection: '',
-    title: '',
+    title: 'About Us', // Default to section name
     content: '',
     image_url: ''
   })
   const [contentFilter, setContentFilter] = useState<'all' | 'static' | 'database'>('all')
   const [editingContent, setEditingContent] = useState<ContentItem | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isCreatingNew, setIsCreatingNew] = useState(false)
   const [publicationMode, setPublicationMode] = useState<'form' | 'pdf'>('form')
   const [settings, setSettings] = useState<CompanySettings>({
     company_name: '',
@@ -164,6 +165,13 @@ export default function AdminDashboard() {
 
   const handleContentImageUpload = async (file: File) => {
     if (!file) return null
+    
+    // Check file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024 // 10MB in bytes
+    if (file.size > maxSize) {
+      alert('File size must be less than 10MB')
+      return null
+    }
     
     setUploadingContentImage(true)
     const formData = new FormData()
@@ -264,38 +272,66 @@ export default function AdminDashboard() {
       const data = await response.json()
       setContentItems(data.content || [])
       
-      // Default subsections if no content exists
-      const defaultSubsections = {
-        about: ['corporate-governance', 'our-history', 'leadership-team', 'mission-vision', 'sustainability'],
-        services: ['sourcing', 'testing-analysis', 'crushing', 'tagging', 'packing', 'loading', 'shipping'],
-        products: ['coltan', 'cassiterite', 'tungsten'],
-        policies: ['environmental-policy', 'safety-standards', 'quality-assurance', 'compliance']
+      // Static subsections with their display titles
+      const staticSubsections = {
+        about: [
+          { id: 'corporate-governance', title: 'Corporate Governance' },
+          { id: 'our-history', title: 'Our History' },
+          { id: 'leadership-team', title: 'Leadership Team' },
+          { id: 'mission-vision', title: 'Mission & Vision' },
+          { id: 'sustainability', title: 'Sustainability' }
+        ],
+        services: [
+          { id: 'sourcing', title: 'Sourcing' },
+          { id: 'testing-analysis', title: 'Testing & Analysis' },
+          { id: 'crushing', title: 'Crushing' },
+          { id: 'tagging', title: 'Tagging' },
+          { id: 'packing', title: 'Packing' },
+          { id: 'loading', title: 'Loading' },
+          { id: 'shipping', title: 'Shipping' }
+        ],
+        products: [
+          { id: 'coltan', title: 'Coltan' },
+          { id: 'cassiterite', title: 'Cassiterite' },
+          { id: 'tungsten', title: 'Tungsten' }
+        ],
+        policies: [
+          { id: 'environmental-policy', title: 'Environmental Policy' },
+          { id: 'safety-standards', title: 'Safety Standards' },
+          { id: 'quality-assurance', title: 'Quality Assurance' },
+          { id: 'compliance', title: 'Compliance' }
+        ]
       }
       
-      // Extract unique subsections per section from database content
+      // Combine static and dynamic subsections with deduplication
       const subsections: {[key: string]: string[]} = {}
-      data.content?.forEach((item: ContentItem) => {
-        if (item.subsection) {
-          if (!subsections[item.section]) subsections[item.section] = []
-          if (!subsections[item.section].includes(item.subsection)) {
-            subsections[item.section].push(item.subsection)
-          }
-        }
-      })
       
-      // Merge with defaults - add database subsections to defaults
-      Object.keys(defaultSubsections).forEach(section => {
-        if (!subsections[section]) {
-          subsections[section] = [...defaultSubsections[section as keyof typeof defaultSubsections]]
-        } else {
-          // Add default subsections that aren't already in database
-          const defaults = defaultSubsections[section as keyof typeof defaultSubsections]
-          defaults.forEach(defaultSub => {
-            if (!subsections[section].includes(defaultSub)) {
-              subsections[section].push(defaultSub)
+      Object.keys(staticSubsections).forEach(section => {
+        const staticItems = staticSubsections[section as keyof typeof staticSubsections]
+        const dynamicItems = (data.content || []).filter((item: ContentItem) => 
+          item.section === section && item.subsection
+        )
+        
+        // Start with static subsections
+        const combined = [...staticItems.map(item => item.id)]
+        
+        // Add dynamic subsections that don't duplicate static ones
+        dynamicItems.forEach((item: ContentItem) => {
+          if (item.subsection) {
+            // Check if this dynamic item duplicates a static one (by title or normalized title)
+            const isDuplicate = staticItems.some(staticItem => 
+              staticItem.title === item.title ||
+              staticItem.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '') === item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '') ||
+              staticItem.id === item.subsection
+            )
+            
+            if (!isDuplicate && !combined.includes(item.subsection)) {
+              combined.push(item.subsection)
             }
-          })
-        }
+          }
+        })
+        
+        subsections[section] = combined
       })
       
       setAvailableSubsections(subsections)
@@ -333,6 +369,14 @@ export default function AdminDashboard() {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
+
+    // Check file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024 // 10MB in bytes
+    if (file.size > maxSize) {
+      alert('File size must be less than 10MB')
+      event.target.value = ''
+      return
+    }
 
     if (!selectedSection) {
       alert('Please select a section first')
@@ -604,6 +648,14 @@ export default function AdminDashboard() {
     const file = event.target.files?.[0]
     if (!file) return
 
+    // Check file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024 // 10MB in bytes
+    if (file.size > maxSize) {
+      alert('File size must be less than 10MB')
+      event.target.value = ''
+      return
+    }
+
     setUploadingLogo(true)
     
     // First, delete existing logo from database
@@ -794,17 +846,45 @@ export default function AdminDashboard() {
       let imageUrl = contentForm.image_url
       
       // Upload image if file is selected and creating new subsection
-      if (contentImageFile && !isEditing && !availableSubsections[contentForm.section]?.includes(contentForm.subsection)) {
+      if (contentImageFile && !isEditing && contentForm.subsection && !availableSubsections[contentForm.section]?.includes(contentForm.subsection)) {
         const uploadedImageUrl = await handleContentImageUpload(contentImageFile)
         if (uploadedImageUrl) {
           imageUrl = uploadedImageUrl
         }
       }
 
-      const method = isEditing ? 'PUT' : 'POST'
-      const body = isEditing 
-        ? JSON.stringify({ ...contentForm, image_url: imageUrl, id: editingContent?.id })
-        : JSON.stringify({ ...contentForm, image_url: imageUrl })
+      let method = 'POST'
+      let body = JSON.stringify({ ...contentForm, image_url: imageUrl })
+      
+      if (isEditing && editingContent?.id) {
+        // Editing existing content via edit button
+        method = 'PUT'
+        body = JSON.stringify({ ...contentForm, image_url: imageUrl, id: editingContent.id })
+      } else {
+        // Determine if we're updating existing content or creating new
+        let existingContent = null
+        
+        if (contentForm.subsection === '') {
+          // Main section content (e.g., "About Us" with no subsection)
+          existingContent = contentItems.find(item => 
+            item.section === contentForm.section && 
+            (!item.subsection || item.subsection === null || item.subsection === '')
+          )
+        } else {
+          // Subsection content
+          existingContent = contentItems.find(item => 
+            item.section === contentForm.section && 
+            item.subsection === contentForm.subsection
+          )
+        }
+        
+        if (existingContent) {
+          // Update existing content
+          method = 'PUT'
+          body = JSON.stringify({ ...contentForm, image_url: imageUrl, id: existingContent.id })
+        }
+        // else: Create new content (POST)
+      }
 
       const response = await fetch('/api/content', {
         method,
@@ -815,10 +895,21 @@ export default function AdminDashboard() {
       const result = await response.json()
       
       if (result.success) {
-        alert(isEditing ? 'Content updated successfully!' : 'Content saved successfully!')
-        setContentForm({ section: 'about', subsection: '', title: '', content: '', image_url: '' })
+        const action = method === 'PUT' ? 'updated' : 'created'
+        alert(`Content ${action} successfully!`)
+        
+        // Reset form to default state
+        const sectionTitles = {
+          'about': 'About Us',
+          'services': 'Services', 
+          'products': 'Products',
+          'policies': 'Policies'
+        }
+        const defaultTitle = sectionTitles[contentForm.section as keyof typeof sectionTitles] || contentForm.section
+        setContentForm({ section: contentForm.section, subsection: '', title: defaultTitle, content: '', image_url: '' })
         setContentImageFile(null)
         setIsEditing(false)
+        setIsCreatingNew(false)
         setEditingContent(null)
         await fetchContent()
         window.dispatchEvent(new CustomEvent('contentUpdated'))
@@ -847,9 +938,17 @@ export default function AdminDashboard() {
   }
 
   const cancelEdit = () => {
-    setContentForm({ section: 'about', subsection: '', title: '', content: '', image_url: '' })
+    const sectionTitles = {
+      'about': 'About Us',
+      'services': 'Services', 
+      'products': 'Products',
+      'policies': 'Policies'
+    }
+    const defaultTitle = sectionTitles[contentForm.section as keyof typeof sectionTitles] || contentForm.section
+    setContentForm({ section: contentForm.section, subsection: '', title: defaultTitle, content: '', image_url: '' })
     setContentImageFile(null)
     setIsEditing(false)
+    setIsCreatingNew(false)
     setEditingContent(null)
   }
 
@@ -959,16 +1058,23 @@ export default function AdminDashboard() {
                           className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                         >
                           <option value="">Select subsection...</option>
-                          {/* Static predefined subsections */}
-                          {sections.find(s => s.value === selectedSection)?.subsections.map(sub => (
-                            <option key={sub} value={sub}>{sub.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
-                          ))}
-                          {/* Dynamic subsections from content */}
-                          {availableSubsections[selectedSection]?.filter(sub => 
-                            !sections.find(s => s.value === selectedSection)?.subsections.includes(sub)
-                          ).map(sub => (
-                            <option key={sub} value={sub}>{sub.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
-                          ))}
+                          {availableSubsections[selectedSection]?.map(sub => {
+                            // Get display title for subsection
+                            const getSubsectionTitle = (subsectionId: string) => {
+                              // First check if there's database content with a title
+                              const dbContent = contentItems.find(item => 
+                                item.section === selectedSection && item.subsection === subsectionId
+                              )
+                              if (dbContent) return dbContent.title
+                              
+                              // Otherwise format the ID as title
+                              return subsectionId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                            }
+                            
+                            return (
+                              <option key={sub} value={sub}>{getSubsectionTitle(sub)}</option>
+                            )
+                          })}
                         </select>
                       </div>
 
@@ -1168,7 +1274,17 @@ export default function AdminDashboard() {
                         <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Section</label>
                         <select
                           value={contentForm.section}
-                          onChange={(e) => setContentForm({...contentForm, section: e.target.value, subsection: ''})}
+                          onChange={(e) => {
+                            const newSection = e.target.value
+                            const sectionTitles = {
+                              'about': 'About Us',
+                              'services': 'Services', 
+                              'products': 'Products',
+                              'policies': 'Policies'
+                            }
+                            const sectionTitle = sectionTitles[newSection as keyof typeof sectionTitles] || newSection
+                            setContentForm({...contentForm, section: newSection, subsection: '', title: sectionTitle})
+                          }}
                           className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                         >
                           <option value="about">About Us</option>
@@ -1180,24 +1296,70 @@ export default function AdminDashboard() {
 
                       <div>
                         <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Subsection</label>
-                        <div className="space-y-2">
+                        <div>
                           <select
                             value={contentForm.subsection}
-                            onChange={(e) => setContentForm({...contentForm, subsection: e.target.value})}
+                            onChange={(e) => {
+                              const selectedSubsection = e.target.value
+                              setContentForm({...contentForm, subsection: selectedSubsection})
+                              
+                              if (selectedSubsection === '') {
+                                // No subsection selected - auto-fill with section name
+                                const sectionTitles = {
+                                  'about': 'About Us',
+                                  'services': 'Services', 
+                                  'products': 'Products',
+                                  'policies': 'Policies'
+                                }
+                                const sectionTitle = sectionTitles[contentForm.section as keyof typeof sectionTitles] || contentForm.section
+                                setContentForm(prev => ({...prev, title: sectionTitle, subsection: ''}))
+                                setIsCreatingNew(false)
+                              } else if (selectedSubsection === 'CREATE_NEW') {
+                                // Creating new subsection - clear title for user input
+                                setContentForm(prev => ({...prev, title: '', subsection: ''}))
+                                setIsCreatingNew(true)
+                              } else if (availableSubsections[contentForm.section]?.includes(selectedSubsection)) {
+                                // Existing subsection selected - auto-fill title
+                                const existingContent = contentItems.find(item => 
+                                  item.section === contentForm.section && item.subsection === selectedSubsection
+                                )
+                                const formattedTitle = existingContent?.title || 
+                                  selectedSubsection.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                                setContentForm(prev => ({...prev, title: formattedTitle, subsection: selectedSubsection}))
+                                setIsCreatingNew(false)
+                              }
+                            }}
                             className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           >
-                            <option value="">Select existing subsection...</option>
-                            {availableSubsections[contentForm.section]?.map(sub => (
-                              <option key={sub} value={sub}>{sub.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
-                            ))}
+                            <option value="">-- Select subsection or edit main section --</option>
+                            {availableSubsections[contentForm.section]?.map(sub => {
+                              // Get display title for subsection
+                              const getSubsectionTitle = (subsectionId: string) => {
+                                // First check if there's database content with a title
+                                const dbContent = contentItems.find(item => 
+                                  item.section === contentForm.section && item.subsection === subsectionId
+                                )
+                                if (dbContent) return dbContent.title
+                                
+                                // Otherwise format the ID as title
+                                return subsectionId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                              }
+                              
+                              return (
+                                <option key={sub} value={sub}>{getSubsectionTitle(sub)}</option>
+                              )
+                            })}
+                            <option value="CREATE_NEW">+ Create new subsection</option>
                           </select>
-                          <input
-                            type="text"
-                            value={contentForm.subsection}
-                            onChange={(e) => setContentForm({...contentForm, subsection: e.target.value})}
-                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                            placeholder="Or create new subsection..."
-                          />
+                          {(contentForm.subsection === '' && contentForm.title === '') || isCreatingNew ? (
+                            <input
+                              type="text"
+                              value={contentForm.subsection}
+                              onChange={(e) => setContentForm({...contentForm, subsection: e.target.value, title: ''})}
+                              className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 mt-2`}
+                              placeholder="Enter new subsection name (e.g., 'new-feature')..."
+                            />
+                          ) : null}
                         </div>
                       </div>
 
@@ -1207,9 +1369,32 @@ export default function AdminDashboard() {
                           type="text"
                           value={contentForm.title}
                           onChange={(e) => setContentForm({...contentForm, title: e.target.value})}
-                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                          className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            (isEditing || 
+                             (contentForm.subsection === '' && contentForm.title !== '') || 
+                             (contentForm.subsection && availableSubsections[contentForm.section]?.includes(contentForm.subsection))) 
+                              ? 'bg-gray-100 cursor-not-allowed' : ''
+                          }`}
+                          readOnly={Boolean(isEditing || 
+                                   (contentForm.subsection === '' && contentForm.title !== '') || 
+                                   (contentForm.subsection && availableSubsections[contentForm.section]?.includes(contentForm.subsection)))}
+                          placeholder={(() => {
+                            if (isEditing) return 'Title is auto-filled for existing content'
+                            if (contentForm.subsection === '' && contentForm.title !== '') return 'Editing main section content'
+                            if (contentForm.subsection && availableSubsections[contentForm.section]?.includes(contentForm.subsection)) return 'Title is auto-filled for existing subsection'
+                            return 'Enter title for new content'
+                          })()}
                           required
                         />
+                        {(isEditing || 
+                          (contentForm.subsection === '' && contentForm.title !== '') || 
+                          (contentForm.subsection && availableSubsections[contentForm.section]?.includes(contentForm.subsection))) && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {contentForm.subsection === '' && contentForm.title !== '' 
+                              ? 'Editing main section content. Title is read-only.' 
+                              : 'Title is read-only for existing content. To create new content, select "+ Create new subsection".'}
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -1223,16 +1408,26 @@ export default function AdminDashboard() {
                         />
                       </div>
 
-                      {/* Show image upload only for new subsections */}
+                      {/* Show image options for new subsections */}
                       {!isEditing && !availableSubsections[contentForm.section]?.includes(contentForm.subsection) && contentForm.subsection && (
                         <div>
                           <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Image (Optional)</label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => setContentImageFile(e.target.files?.[0] || null)}
-                            className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                          />
+                          <div className="space-y-3">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => setContentImageFile(e.target.files?.[0] || null)}
+                              className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                            />
+                            <div className="text-center text-sm text-gray-500">OR</div>
+                            <input
+                              type="url"
+                              value={contentForm.image_url}
+                              onChange={(e) => setContentForm({...contentForm, image_url: e.target.value})}
+                              className={`w-full px-3 py-2 ${themeClasses.input} ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                              placeholder="https://example.com/image.jpg"
+                            />
+                          </div>
                           {uploadingContentImage && (
                             <div className="text-center py-2">
                               <div className="inline-flex items-center text-sm text-gray-600">
@@ -1241,7 +1436,7 @@ export default function AdminDashboard() {
                               </div>
                             </div>
                           )}
-                          <p className="text-xs text-gray-500 mt-1">Image upload is only available when creating new subsections. For existing content, manage images through the Images section.</p>
+                          <p className="text-xs text-gray-500 mt-1">Upload a file or provide an image URL for new subsections. For existing content, manage images through the Images section.</p>
                         </div>
                       )}
 
@@ -1265,7 +1460,7 @@ export default function AdminDashboard() {
                         disabled={uploading}
                         className={`w-full px-4 py-2 ${themeClasses.buttonPrimary} ${themeClasses.radius} disabled:opacity-50`}
                       >
-                        {uploading ? 'Saving...' : (isEditing ? 'Update Content' : 'Save Content')}
+                        {uploading ? 'Saving...' : (isCreatingNew ? 'Save New Content' : 'Update Content')}
                       </button>
                     </form>
                   </div>

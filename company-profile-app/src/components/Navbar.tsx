@@ -104,7 +104,7 @@ const Navbar = () => {
     { title: 'Compliance', icon: FileText }
   ]
 
-  // Combine static and dynamic content - show all static items plus any new dynamic ones
+  // Combine static and dynamic content - show all static items plus any new dynamic ones (deduplicated)
   const aboutItems = [
     ...staticAbout.map((item, index) => {
       const subsectionKey = item.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '')
@@ -123,7 +123,9 @@ const Navbar = () => {
         image_url: uploadedImage || item.image_url
       }
     })
-  ]
+  ].filter((item, index, self) => 
+    index === self.findIndex(t => t.title === item.title)
+  )
   const services = [
     ...staticServices.map((item, index) => {
       // Map static titles to exact database subsection names
@@ -153,7 +155,9 @@ const Navbar = () => {
         image_url: uploadedImage || item.image_url
       }
     })
-  ]
+  ].filter((item, index, self) => 
+    index === self.findIndex(t => t.title === item.title)
+  )
   const products = [
     ...staticProducts.map((item, index) => {
       // Use exact subsection name as stored in database
@@ -174,7 +178,9 @@ const Navbar = () => {
         image_url: uploadedImage || item.image_url
       }
     })
-  ]
+  ].filter((item, index, self) => 
+    index === self.findIndex(t => t.title === item.title)
+  )
   const policies = [
     ...staticPolicies.map((item, index) => {
       // Map static titles to exact database subsection names
@@ -201,7 +207,9 @@ const Navbar = () => {
         image_url: uploadedImage || item.image_url
       }
     })
-  ]
+  ].filter((item, index, self) => 
+    index === self.findIndex(t => t.title === item.title)
+  )
 
   const scrollToSection = (sectionId: string, subsection?: string) => {
     // If not on home page, navigate to home first

@@ -71,6 +71,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024 // 10MB in bytes
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: 'File size must be less than 10MB' },
+        { status: 400 }
+      )
+    }
+
     // Check hero section limit and remove oldest if needed
     if (section === 'hero') {
       const { rows: heroImages } = await sql`SELECT * FROM images WHERE section = ${section} AND is_active = true ORDER BY uploaded_at ASC`

@@ -252,7 +252,7 @@ const Navbar = () => {
             {settings.company_logo ? (
               <img 
                 src={settings.company_logo} 
-                alt={`${settings.company_name} Logo`}
+                alt="Company Logo"
                 className="h-16 w-auto"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
@@ -261,15 +261,6 @@ const Navbar = () => {
               />
             ) : null}
             <Building2 className={`h-16 w-16 text-blue-600 ${settings.company_logo ? 'hidden' : ''}`} />
-            <h1 
-              className={`text-xl font-bold ${theme.theme_mode === 'dark' ? 'text-white' : 'text-gray-900'}`}
-              style={{ 
-                fontFamily: theme.font_family,
-                fontSize: theme.font_size === 'small' ? '18px' : theme.font_size === 'large' ? '24px' : '20px'
-              }}
-            >
-              {settings.company_name}
-            </h1>
           </div>
 
           {/* Desktop Menu */}

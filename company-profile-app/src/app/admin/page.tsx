@@ -545,7 +545,7 @@ export default function AdminDashboard() {
   const validateCompanyInfo = () => {
     const newErrors: {[key: string]: string} = {}
     
-    if (!settings.company_name.trim()) newErrors.company_name = 'Company name is required'
+    // Company name is now optional
     if (!settings.company_email.trim()) newErrors.company_email = 'Email is required'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.company_email)) newErrors.company_email = 'Invalid email format'
     if (!settings.company_phone.trim()) newErrors.company_phone = 'Phone is required'
@@ -1974,7 +1974,7 @@ export default function AdminDashboard() {
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                         <div className="space-y-4">
                           <div>
-                            <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Company Name</label>
+                            <label className={`block text-sm font-medium ${themeClasses.formLabel} mb-2`}>Company Name (Optional)</label>
                             <input 
                               type="text" 
                               value={settings?.company_name ?? ''}
@@ -1982,6 +1982,7 @@ export default function AdminDashboard() {
                               className={`w-full px-3 py-2 border ${themeClasses.radius} focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                                 errors.company_name ? 'border-red-500' : themeClasses.input
                               }`}
+                              placeholder="Company name (will appear in footer)"
                             />
                             {errors.company_name && <p className="text-red-500 text-xs mt-1">{errors.company_name}</p>}
                           </div>

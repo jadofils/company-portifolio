@@ -167,9 +167,9 @@ export default function AdminDashboard() {
     if (!file) return null
     
     // Check file size (10MB limit)
-    const maxSize = 50 * 1024 * 1024 // 10MB in bytes
+    const maxSize = 50 * 1024 * 1024 // 50MB in bytes
     if (file.size > maxSize) {
-      alert('File size must be less than 10MB')
+      alert('File size must be less than 50MB')
       return null
     }
     
@@ -371,9 +371,9 @@ export default function AdminDashboard() {
     if (!file) return
 
     // Check file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024 // 10MB in bytes
+    const maxSize = 50 * 1024 * 1024 // 50MB in bytes
     if (file.size > maxSize) {
-      alert('File size must be less than 10MB')
+      alert('File size must be less than 50MB')
       event.target.value = ''
       return
     }
@@ -649,9 +649,9 @@ export default function AdminDashboard() {
     if (!file) return
 
     // Check file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024 // 10MB in bytes
+    const maxSize = 50 * 1024 * 1024 // 50MB in bytes
     if (file.size > maxSize) {
-      alert('File size must be less than 10MB')
+      alert('File size must be less than 50MB')
       event.target.value = ''
       return
     }
